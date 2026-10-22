@@ -1,60 +1,84 @@
-import './style.css'
-import heroImg from './assets/hero.png'
-import typescriptLogo from './assets/typescript.svg'
-import viteLogo from './assets/vite.svg'
-import { setupCounter } from './counter.ts'
+import Phaser from "phaser";
+import "./style.css";
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-<section id="center">
-  <div class="hero">
-    <img src="${heroImg}" class="base" width="170" height="179">
-    <img src="${typescriptLogo}" class="framework" alt="TypeScript logo"/>
-    <img src="${viteLogo}" class="vite" alt="Vite logo" />
-  </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/main.ts</code> and save to test <code>HMR</code></p>
-  </div>
-  <button id="counter" type="button" class="counter"></button>
-</section>
+class CrowdScene extends Phaser.Scene {
+    private people: Phaser.GameObjects.Arc[] = [];
+    static readonly width = 1000;
+    static readonly height = 700;
 
-<div class="ticks"></div>
+    constructor() {
+        super("CrowdScene");
+    }
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#documentation-icon"></use></svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank">
-          <img class="logo" src="${viteLogo}" alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://www.typescriptlang.org" target="_blank">
-          <img class="button-icon" src="${typescriptLogo}" alt="">
-          Learn more
-        </a>
-      </li>
-    </ul>
-  </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true"><use href="/icons.svg#social-icon"></use></svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li><a href="https://github.com/vitejs/vite" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#github-icon"></use></svg>GitHub</a></li>
-      <li><a href="https://chat.vite.dev/" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#discord-icon"></use></svg>Discord</a></li>
-      <li><a href="https://x.com/vite_js" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#x-icon"></use></svg>X.com</a></li>
-      <li><a href="https://bsky.app/profile/vite.dev" target="_blank"><svg class="button-icon" role="presentation" aria-hidden="true"><use href="/icons.svg#bluesky-icon"></use></svg>Bluesky</a></li>
-    </ul>
-  </div>
-</section>
+    create(): void {
 
-<div class="ticks"></div>
-<section id="spacer"></section>
-`
+        // Raster zeichnen
+        const grid = this.add.graphics();
+        grid.lineStyle(1, 0x293548, 1);
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+        for (let x = 0; x <= CrowdScene.width; x += 40) {
+            grid.lineBetween(x, 0, x, CrowdScene.height);
+        }
+
+        for (let y = 0; y <= CrowdScene.height; y += 40) {
+            grid.lineBetween(0, y, CrowdScene.width, y);
+        }
+
+        // Personen erzeugen
+        for (let i = 0; i < 100; i++) {
+            const x = 20 + Math.random() * 200;
+            const y = 60 + Math.random() * (CrowdScene.height - 120);
+
+            const person = this.add.circle(
+                x,
+                y,
+                4,
+                0xe9aa43
+            );
+
+            this.people.push(person);
+        }
+
+        // Beschriftungen
+        this.add.text(24, 20, "CROWD ENGINEER", {
+            fontFamily: "Arial",
+            fontSize: "20px",
+            color: "#f1f5f9",
+        });
+
+        this.add.text(845, 24, "ZIEL  →", {
+            fontFamily: "Arial",
+            fontSize: "16px",
+            color: "#f1f5f9",
+        });
+    }
+
+    update(_time: number, delta: number): void {
+        // Delta ist die Zeit seit dem letzten Bild in Millisekunden.
+        // 0,06 Pixel pro Millisekunde entsprechen 60 Pixel pro Sekunde.
+        for (const person of this.people) {
+            person.x += delta * 0.06;
+
+            // Am rechten Rand erscheint die Person links erneut.
+            if (person.x > CrowdScene.width + 5) {
+                person.x = -5;
+                person.y = 60 + Math.random() * (CrowdScene.height - 120);
+            }
+        }
+    }
+}
+
+new Phaser.Game({
+    type: Phaser.AUTO,
+    parent: "game",
+    backgroundColor: "#101820",
+
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: CrowdScene.width,
+        height: CrowdScene.height,
+    },
+
+    scene: [CrowdScene],
+});

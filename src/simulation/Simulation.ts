@@ -1,9 +1,12 @@
-import type {Agent} from "./Agent.ts";
+import type {Agent, Vector2} from "./Agent.ts";
 
 export class Simulation {
 
     private readonly worldWidth: number;
     private readonly worldHeight: number;
+
+    private readonly separationRadius = 25;
+    private readonly separationStrength = 50;
 
     readonly agents: Agent[];
 
@@ -27,8 +30,13 @@ export class Simulation {
 
     update(deltaSeconds: number): void {
 
-        for (const agent of this.agents) {
-            this.updateAgent(agent, deltaSeconds);
+        const updates = this.agents.map((agent) => ({
+            agent,
+            separation: this.calculateSeparation(agent)
+        }));
+
+        for (const {agent, separation} of updates) {
+            this.updateAgent(agent, deltaSeconds, separation);
         }
 
     }
@@ -58,35 +66,46 @@ export class Simulation {
         };
     }
 
-    private updateAgent(agent: Agent, deltaSeconds: number): void {
+    private updateAgent(agent: Agent, deltaSeconds: number, separation: Vector2): void {
 
         const dx = agent.target.x - agent.position.x;
         const dy = agent.target.y - agent.position.y;
         const distance = Math.hypot(dx, dy);
 
-        if (distance < 1) {
+        if (distance < agent.radius) {
             this.resetAgent(agent);
             return;
         }
 
-        const distanceToTravel = Math.min(
-            agent.desiredSpeed * deltaSeconds,
-            distance
-        );
+        const desiredVelocityX = (dx / distance) * agent.desiredSpeed;
+        const desiredVelocityY = (dy / distance) * agent.desiredSpeed;
 
-        const directionX = dx / distance;
-        const directionY = dy / distance;
+        let vx = desiredVelocityX + separation.x;
+        let vy = desiredVelocityY + separation.y;
 
-        agent.velocity.x = directionX * agent.desiredSpeed;
-        agent.velocity.y = directionY * agent.desiredSpeed;
+        const speed = Math.hypot(vx, vy);
+        const maxSpeed = agent.desiredSpeed * 1.5;
 
-        agent.position.x += directionX * distanceToTravel;
-        agent.position.y += directionY * distanceToTravel;
-
-        if (distanceToTravel >= distance) {
-            this.resetAgent(agent);
+        if (speed > maxSpeed) {
+            const scale = maxSpeed / speed;
+            vx *= scale;
+            vy *= scale;
         }
 
+        agent.velocity.x = vx;
+        agent.velocity.y = vy;
+
+       agent.position.x += vx * deltaSeconds;
+       agent.position.y += vy * deltaSeconds;
+
+       const remainingDistance = Math.hypot(
+           agent.target.x - agent.position.x,
+           agent.target.y - agent.position.y
+       );
+
+       if (remainingDistance < agent.radius) {
+           this.resetAgent(agent);
+       }
     }
 
     private resetAgent(agent: Agent): void {
@@ -110,6 +129,37 @@ export class Simulation {
 
     private randomY(): number {
         return 60 + Math.random() * (this.worldHeight - 120)
+    }
+
+    private calculateSeparation(agent: Agent): Vector2 {
+        let separationX = 0;
+        let separationY = 0;
+
+        for (const other of this.agents) {
+            if (other.id === agent.id) {
+                continue;
+            }
+
+            const dx = agent.position.x - other.position.x;
+            const dy = agent.position.y - other.position.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance === 0 || distance >= this.separationRadius) {
+                continue;
+            }
+
+            const weight = (this.separationRadius - distance) / this.separationRadius;
+
+            separationX += (dx / distance) * weight;
+            separationY += (dy / distance) * weight;
+
+        }
+
+        return {
+            x: separationX * this.separationStrength,
+            y: separationY * this.separationStrength
+        }
+
     }
 
 }

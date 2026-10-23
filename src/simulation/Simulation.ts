@@ -1,4 +1,5 @@
 import type {Agent, Vector2} from "./Agent.ts";
+import {SpatialGrid} from "../spatial/SpatialGrid.ts";
 
 export class Simulation {
 
@@ -7,6 +8,8 @@ export class Simulation {
 
     private readonly separationRadius = 25;
     private readonly separationStrength = 50;
+
+    private readonly spatialGrid: SpatialGrid<Agent>;
 
     readonly agents: Agent[];
 
@@ -20,6 +23,7 @@ export class Simulation {
 
         this.worldWidth = worldWidth;
         this.worldHeight = worldHeight;
+        this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
 
         this.agents = Array.from(
             {length: agentCount},
@@ -29,6 +33,7 @@ export class Simulation {
     }
 
     update(deltaSeconds: number): void {
+        this.rebuildSpatialGrid();
 
         const updates = this.agents.map((agent) => ({
             agent,
@@ -95,17 +100,17 @@ export class Simulation {
         agent.velocity.x = vx;
         agent.velocity.y = vy;
 
-       agent.position.x += vx * deltaSeconds;
-       agent.position.y += vy * deltaSeconds;
+        agent.position.x += vx * deltaSeconds;
+        agent.position.y += vy * deltaSeconds;
 
-       const remainingDistance = Math.hypot(
-           agent.target.x - agent.position.x,
-           agent.target.y - agent.position.y
-       );
+        const remainingDistance = Math.hypot(
+            agent.target.x - agent.position.x,
+            agent.target.y - agent.position.y
+        );
 
-       if (remainingDistance < agent.radius) {
-           this.resetAgent(agent);
-       }
+        if (remainingDistance < agent.radius) {
+            this.resetAgent(agent);
+        }
     }
 
     private resetAgent(agent: Agent): void {
@@ -135,7 +140,13 @@ export class Simulation {
         let separationX = 0;
         let separationY = 0;
 
-        for (const other of this.agents) {
+        const candidates = this.spatialGrid.queryCandidates(
+            agent.position.x,
+            agent.position.y,
+            this.separationRadius
+        );
+
+        for (const other of candidates) {
             if (other.id === agent.id) {
                 continue;
             }
@@ -160,6 +171,18 @@ export class Simulation {
             y: separationY * this.separationStrength
         }
 
+    }
+
+    private rebuildSpatialGrid(): void {
+        this.spatialGrid.clear();
+
+        for (const agent of this.agents) {
+            this.spatialGrid.insert(
+                agent,
+                agent.position.x,
+                agent.position.y,
+            );
+        }
     }
 
 }

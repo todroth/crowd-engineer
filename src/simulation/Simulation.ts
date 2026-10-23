@@ -4,31 +4,42 @@ import type {Vector2} from "./Vector2.ts";
 import {calculateSeparation} from "./steering/calculateSeparation.ts";
 import {AgentFactory} from "./AgentFactory.ts";
 import type {SimulationConfig} from "./SimulationConfig.ts";
+import type {Obstacle} from "./Obstacle.ts";
+import {calculateObstacleAvoidance} from "./steering/calculateObstacleAvoidance.ts";
 
 export class Simulation {
 
     private readonly separationRadius: number;
     private readonly separationStrength: number;
     private readonly maxAcceleration: number;
+    private readonly obstacleLookAheadDistance: number;
+    private readonly obstacleAvoidanceStrength: number;
+    private readonly obstacleClearanceMargin: number;
 
     private readonly spatialGrid: SpatialGrid<Agent>;
     private readonly agentFactory: AgentFactory;
 
     readonly agents: Agent[];
+    private readonly obstacles: readonly Obstacle[];
 
     constructor(
         worldWidth: number,
         worldHeight: number,
         agentCount: number,
         config: SimulationConfig,
+        obstacles: readonly Obstacle[] = [],
     ) {
 
         this.separationRadius = config.separationRadius;
         this.separationStrength = config.separationStrength;
         this.maxAcceleration = config.maxAcceleration;
+        this.obstacleLookAheadDistance = config.obstacleLookAheadDistance;
+        this.obstacleAvoidanceStrength = config.obstacleAvoidanceStrength;
+        this.obstacleClearanceMargin = config.obstacleClearanceMargin;
 
         this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
         this.agentFactory = new AgentFactory(worldWidth, worldHeight);
+        this.obstacles = obstacles;
 
         this.agents = Array.from(
             {length: agentCount},
@@ -44,21 +55,35 @@ export class Simulation {
             const candidates = this.spatialGrid.queryCandidates(
                 agent.position.x,
                 agent.position.y,
-                this.separationRadius
+                this.separationRadius,
             );
 
             const separation = calculateSeparation(
                 agent,
                 candidates,
                 this.separationRadius,
-                this.separationStrength
+                this.separationStrength,
             );
 
-            return {agent, separation};
+            const obstacleAvoidance = calculateObstacleAvoidance(
+                agent,
+                this.obstacles,
+                this.obstacleLookAheadDistance,
+                this.obstacleAvoidanceStrength,
+                this.obstacleClearanceMargin,
+            );
+
+            return {
+                agent,
+                steering: {
+                    x: separation.x + obstacleAvoidance.x,
+                    y: separation.y + obstacleAvoidance.y,
+                },
+            };
         });
 
-        for (const {agent, separation} of updates) {
-            this.updateAgent(agent, deltaSeconds, separation);
+        for (const {agent, steering} of updates) {
+            this.updateAgent(agent, deltaSeconds, steering);
         }
 
     }
@@ -67,7 +92,7 @@ export class Simulation {
     private updateAgent(
         agent: Agent,
         deltaSeconds: number,
-        separation: Vector2,
+        steering: Vector2,
     ): void {
         const dx = agent.target.x - agent.position.x;
         const dy = agent.target.y - agent.position.y;
@@ -82,9 +107,8 @@ export class Simulation {
         const desiredVelocityX = (dx / distance) * agent.desiredSpeed;
         const desiredVelocityY = (dy / distance) * agent.desiredSpeed;
 
-        // Separation verändert die gewünschte Bewegungsrichtung.
-        let targetVelocityX = desiredVelocityX + separation.x;
-        let targetVelocityY = desiredVelocityY + separation.y;
+        let targetVelocityX = desiredVelocityX + steering.x;
+        let targetVelocityY = desiredVelocityY + steering.y;
 
         // Maximale Zielgeschwindigkeit begrenzen.
         const targetSpeed = Math.hypot(targetVelocityX, targetVelocityY);

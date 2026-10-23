@@ -1,4 +1,5 @@
 import type {SimulationConfig} from "../simulation/SimulationConfig.ts";
+import type {Obstacle} from "../simulation/Obstacle.ts";
 
 export const DEFAULT_LEVEL = {
     worldWidth: 1000,
@@ -9,5 +10,15 @@ export const DEFAULT_LEVEL = {
         separationRadius: 25,
         separationStrength: 50,
         maxAcceleration: 80,
-    } satisfies SimulationConfig
+        obstacleLookAheadDistance: 150,
+        obstacleAvoidanceStrength: 100,
+        obstacleClearanceMargin: 16,
+    } satisfies SimulationConfig,
+
+    obstacles: [
+        {
+            position: {x: 500, y: 350},
+            radius: 55
+        }
+    ] satisfies readonly Obstacle[],
 } as const;

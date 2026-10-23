@@ -19,10 +19,12 @@ export class CrowdScene extends Phaser.Scene {
             this.level.worldWidth,
             this.level.worldHeight,
             this.level.agentCount,
-            this.level.simulation
+            this.level.simulation,
+            this.level.obstacles,
         );
 
         this.drawGrid();
+        this.drawObstacles();
         this.createPeople();
 
     }
@@ -57,6 +59,17 @@ export class CrowdScene extends Phaser.Scene {
             grid.lineBetween(0, y, this.level.worldWidth, y);
         }
 
+    }
+
+    private drawObstacles(): void {
+        for (const obstacle of this.level.obstacles) {
+            this.add.circle(
+                obstacle.position.x,
+                obstacle.position.y,
+                obstacle.radius,
+                0x45556b
+            ).setStrokeStyle(3, 0x9aacc7);
+        }
     }
 
     private createPeople(): void {

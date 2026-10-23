@@ -1,5 +1,6 @@
 import type {Agent} from "../../Agent.ts";
 import type {Vector2} from "../../Vector2.ts";
+import {getNavigationTarget} from "../../navigation/getNavigationTarget.ts";
 
 export interface TargetBasis {
     readonly forwardX: number;
@@ -9,8 +10,9 @@ export interface TargetBasis {
 }
 
 export function getTargetBasis(agent: Agent): TargetBasis | null {
-    const dx = agent.target.x - agent.position.x;
-    const dy = agent.target.y - agent.position.y;
+    const target = getNavigationTarget(agent);
+    const dx = target.x - agent.position.x;
+    const dy = target.y - agent.position.y;
     const distance = Math.hypot(dx, dy);
 
     if (distance === 0) {

@@ -36,14 +36,14 @@ export const DEFAULT_LEVEL = {
         // TRICHTER: breit links, eng rechts
         {
             type: "wall",
-            start: {x: 300, y: 80},
-            end: {x: 540, y: 290},
+            start: {x: 300, y: 90},
+            end: {x: 540, y: 350},
             thickness: 12,
         },
         {
             type: "wall",
-            start: {x: 300, y: 620},
-            end: {x: 540, y: 410},
+            start: {x: 300, y: 600},
+            end: {x: 540, y: 380},
             thickness: 12,
         },
 

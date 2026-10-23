@@ -8,6 +8,8 @@ import type {Obstacle} from "./Obstacle.ts";
 import {calculateObstacleAvoidance} from "./steering/calculateObstacleAvoidance.ts";
 import {resolveObstacleCollision} from "./collision/resolveObstacleCollision.ts";
 import {calculateLocalDensity} from "./metrics/calculateLocalDensity.ts";
+import {RoutePlanner} from "./navigation/RoutePlanner.ts";
+import {getNavigationTarget} from "./navigation/getNavigationTarget.ts";
 
 export class Simulation {
 
@@ -21,6 +23,7 @@ export class Simulation {
 
     private readonly spatialGrid: SpatialGrid<Agent>;
     private readonly agentFactory: AgentFactory;
+    private readonly routePlanner: RoutePlanner;
 
     readonly agents: Agent[];
     private readonly obstacles: readonly Obstacle[];
@@ -49,6 +52,22 @@ export class Simulation {
             {length: agentCount},
             () => this.agentFactory.createAgent(),
         );
+
+        const maxAgentRadius = this.agents.reduce(
+            (maximum, agent) => Math.max(maximum, agent.radius),
+            0,
+        );
+
+        this.routePlanner = new RoutePlanner(
+            this.obstacles,
+            maxAgentRadius,
+            config.obstacleClearanceMargin,
+            worldHeight,
+        );
+
+        for (const agent of this.agents) {
+            this.assignRoute(agent);
+        }
 
     }
 
@@ -109,12 +128,14 @@ export class Simulation {
         deltaSeconds: number,
         steering: Vector2,
     ): void {
-        const dx = agent.target.x - agent.position.x;
-        const dy = agent.target.y - agent.position.y;
+        const navigationTarget = getNavigationTarget(agent);
+        const dx = navigationTarget.x - agent.position.x;
+        const dy = navigationTarget.y - agent.position.y;
         const distance = Math.hypot(dx, dy);
+        const waypointReachDistance = Math.max(agent.radius + 1, 6);
 
-        if (distance < agent.radius) {
-            this.agentFactory.resetAgent(agent);
+        if (distance < waypointReachDistance) {
+            this.advanceWaypointOrReset(agent);
             return;
         }
 
@@ -173,12 +194,12 @@ export class Simulation {
         agent.velocity.y = resolved.velocity.y;
 
         const remainingDistance = Math.hypot(
-            agent.target.x - agent.position.x,
-            agent.target.y - agent.position.y,
+            navigationTarget.x - agent.position.x,
+            navigationTarget.y - agent.position.y,
         );
 
-        if (remainingDistance < agent.radius) {
-            this.agentFactory.resetAgent(agent);
+        if (remainingDistance < waypointReachDistance) {
+            this.advanceWaypointOrReset(agent);
         }
     }
 
@@ -194,4 +215,21 @@ export class Simulation {
         }
     }
 
+    private assignRoute(agent: Agent): void {
+        agent.waypoints = this.routePlanner.planRoute(
+            agent.position,
+            agent.target,
+        );
+        agent.waypointIndex = 0;
+    }
+
+    private advanceWaypointOrReset(agent: Agent): void {
+        if (agent.waypointIndex < agent.waypoints.length - 1) {
+            agent.waypointIndex++;
+            return;
+        }
+
+        this.agentFactory.resetAgent(agent);
+        this.assignRoute(agent);
+    }
 }

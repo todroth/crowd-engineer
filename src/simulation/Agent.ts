@@ -12,4 +12,6 @@ export interface Agent {
 
     localDensity: number;
 
+    waypoints: Vector2[];
+    waypointIndex: number;
 }

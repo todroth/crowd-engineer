@@ -32,8 +32,10 @@ export class AgentFactory {
             desiredSpeed: 40 + Math.random() * 20,
             radius: 4,
 
-            localDensity: 0
+            localDensity: 0,
 
+            waypoints: [],
+            waypointIndex: 0,
         };
     }
 
@@ -57,6 +59,8 @@ export class AgentFactory {
 
         agent.localDensity = 0;
 
+        agent.waypoints = [];
+        agent.waypointIndex = 0;
     }
 
     private randomY(): number {

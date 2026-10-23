@@ -61,7 +61,7 @@ export class Simulation {
         this.routePlanner = new RoutePlanner(
             this.obstacles,
             maxAgentRadius,
-            config.obstacleClearanceMargin,
+            config.routeClearance,
             worldHeight,
         );
 
@@ -99,13 +99,18 @@ export class Simulation {
                 this.separationStrength,
             );
 
-            const obstacleAvoidance = calculateObstacleAvoidance(
-                agent,
-                this.obstacles,
-                this.obstacleLookAheadDistance,
-                this.obstacleAvoidanceStrength,
-                this.obstacleClearanceMargin,
-            );
+            const hasPlannedDetour =
+                agent.waypointIndex < agent.waypoints.length - 1;
+
+            const obstacleAvoidance = hasPlannedDetour
+                ? {x: 0, y: 0}
+                : calculateObstacleAvoidance(
+                    agent,
+                    this.obstacles,
+                    this.obstacleLookAheadDistance,
+                    this.obstacleAvoidanceStrength,
+                    this.obstacleClearanceMargin,
+                );
 
             return {
                 agent,

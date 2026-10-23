@@ -198,11 +198,13 @@ export class RoutePlanner {
 
         reversed.reverse();
 
-        return reversed.map((id) =>
+        const route = reversed.map((id) =>
             id === goalId
                 ? destination
                 : {...this.nodes[id]},
         );
+
+        return this.simplifyRoute(start, route);
     }
 
     private createNodes(): Vector2[] {
@@ -363,5 +365,47 @@ export class RoutePlanner {
         }
 
         return graph;
+    }
+
+    private simplifyRoute(
+        start: Vector2,
+        route: Vector2[],
+    ): Vector2[] {
+        const simplified: Vector2[] = [];
+        let anchor = start;
+        let index = 0;
+
+        while (index < route.length) {
+            // Möglichst viele Zwischenpunkte überspringen,
+            // solange die direkte Verbindung frei bleibt.
+            let furthestVisible = index;
+
+            for (
+                let candidate = route.length - 1;
+                candidate > index;
+                candidate--
+            ) {
+                if (
+                    isRouteSegmentClear(
+                        anchor,
+                        route[candidate],
+                        this.obstacles,
+                        this.agentRadius,
+                        this.clearance,
+                    )
+                ) {
+                    furthestVisible = candidate;
+                    break;
+                }
+            }
+
+            const waypoint = route[furthestVisible];
+
+            simplified.push(waypoint);
+            anchor = waypoint;
+            index = furthestVisible + 1;
+        }
+
+        return simplified;
     }
 }

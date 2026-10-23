@@ -15,6 +15,7 @@ export const DEFAULT_LEVEL = {
         obstacleAvoidanceStrength: 180,
         obstacleClearanceMargin: 24,
 
+        routeClearance: 2,
         densityRadius: 25,
     } satisfies SimulationConfig,
 
@@ -37,13 +38,13 @@ export const DEFAULT_LEVEL = {
         {
             type: "wall",
             start: {x: 300, y: 90},
-            end: {x: 540, y: 350},
+            end: {x: 540, y: 300},
             thickness: 12,
         },
         {
             type: "wall",
             start: {x: 300, y: 600},
-            end: {x: 540, y: 380},
+            end: {x: 540, y: 400},
             thickness: 12,
         },
 

@@ -8,4 +8,5 @@ export interface SimulationConfig {
     readonly obstacleClearanceMargin: number;
 
     readonly densityRadius: number;
+    readonly routeClearance: number;
 }

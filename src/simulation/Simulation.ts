@@ -3,11 +3,12 @@ import {SpatialGrid} from "../spatial/SpatialGrid.ts";
 import type {Vector2} from "./Vector2.ts";
 import {calculateSeparation} from "./steering/calculateSeparation.ts";
 import {AgentFactory} from "./AgentFactory.ts";
+import type {SimulationConfig} from "./SimulationConfig.ts";
 
 export class Simulation {
 
-    private readonly separationRadius = 25;
-    private readonly separationStrength = 50;
+    private readonly separationRadius: number;
+    private readonly separationStrength: number;
 
     private readonly spatialGrid: SpatialGrid<Agent>;
     private readonly agentFactory: AgentFactory;
@@ -17,8 +18,12 @@ export class Simulation {
     constructor(
         worldWidth: number,
         worldHeight: number,
-        agentCount: number
+        agentCount: number,
+        config: SimulationConfig,
     ) {
+
+        this.separationRadius = config.separationRadius;
+        this.separationStrength = config.separationStrength;
 
         this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
         this.agentFactory = new AgentFactory(worldWidth, worldHeight);

@@ -18,7 +18,8 @@ export class CrowdScene extends Phaser.Scene {
         this.simulation = new Simulation(
             this.level.worldWidth,
             this.level.worldHeight,
-            this.level.agentCount
+            this.level.agentCount,
+            this.level.simulation
         );
 
         this.drawGrid();

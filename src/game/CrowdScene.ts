@@ -61,16 +61,48 @@ export class CrowdScene extends Phaser.Scene {
 
     }
 
+
     private drawObstacles(): void {
+        const wallGraphics = this.add.graphics();
+
         for (const obstacle of this.level.obstacles) {
-            this.add.circle(
-                obstacle.position.x,
-                obstacle.position.y,
-                obstacle.radius,
-                0x45556b
-            ).setStrokeStyle(3, 0x9aacc7);
+            switch (obstacle.type) {
+                case "circle":
+                    this.add.circle(
+                        obstacle.center.x,
+                        obstacle.center.y,
+                        obstacle.radius,
+                        0x45556b,
+                    ).setStrokeStyle(3, 0x9aacc7);
+                    break;
+
+                case "rectangle":
+                    this.add.rectangle(
+                        obstacle.position.x + obstacle.width / 2,
+                        obstacle.position.y + obstacle.height / 2,
+                        obstacle.width,
+                        obstacle.height,
+                        0x45556b,
+                    ).setStrokeStyle(3, 0x9aacc7);
+                    break;
+
+                case "wall":
+                    wallGraphics.lineStyle(
+                        obstacle.thickness,
+                        0x45556b,
+                        1,
+                    );
+                    wallGraphics.lineBetween(
+                        obstacle.start.x,
+                        obstacle.start.y,
+                        obstacle.end.x,
+                        obstacle.end.y,
+                    );
+                    break;
+            }
         }
     }
+
 
     private createPeople(): void {
         for (const agent of this.simulation.agents) {

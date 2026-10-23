@@ -17,12 +17,21 @@ export const DEFAULT_LEVEL = {
 
     obstacles: [
         {
-            position: {x: 500, y: 350},
-            radius: 55
+            type: "circle",
+            center: {x: 500, y: 350},
+            radius: 55,
         },
         {
-            position: {x: 100, y: 100},
-            radius: 10
-        }
+            type: "rectangle",
+            position: {x: 300, y: 230},
+            width: 42,
+            height: 140,
+        },
+        {
+            type: "wall",
+            start: {x: 700, y: 250},
+            end: {x: 700, y: 450},
+            thickness: 12,
+        },
     ] satisfies readonly Obstacle[],
 } as const;

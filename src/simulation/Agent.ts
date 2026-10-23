@@ -1,7 +1,4 @@
-export interface Vector2 {
-    x: number;
-    y: number;
-}
+import type {Vector2} from "./Vector2.ts";
 
 export interface Agent {
     readonly id: number;

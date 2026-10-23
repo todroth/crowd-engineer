@@ -1,5 +1,7 @@
-import type {Agent, Vector2} from "./Agent.ts";
+import type {Agent} from "./Agent.ts";
 import {SpatialGrid} from "../spatial/SpatialGrid.ts";
+import type {Vector2} from "./Vector2.ts";
+import {calculateSeparation} from "./steering/calculateSeparation.ts";
 
 export class Simulation {
 
@@ -35,10 +37,22 @@ export class Simulation {
     update(deltaSeconds: number): void {
         this.rebuildSpatialGrid();
 
-        const updates = this.agents.map((agent) => ({
-            agent,
-            separation: this.calculateSeparation(agent)
-        }));
+        const updates = this.agents.map((agent) => {
+            const candidates = this.spatialGrid.queryCandidates(
+                agent.position.x,
+                agent.position.y,
+                this.separationRadius
+            );
+
+            const separation = calculateSeparation(
+                agent,
+                candidates,
+                this.separationRadius,
+                this.separationStrength
+            );
+
+            return {agent, separation};
+        });
 
         for (const {agent, separation} of updates) {
             this.updateAgent(agent, deltaSeconds, separation);
@@ -134,43 +148,6 @@ export class Simulation {
 
     private randomY(): number {
         return 60 + Math.random() * (this.worldHeight - 120)
-    }
-
-    private calculateSeparation(agent: Agent): Vector2 {
-        let separationX = 0;
-        let separationY = 0;
-
-        const candidates = this.spatialGrid.queryCandidates(
-            agent.position.x,
-            agent.position.y,
-            this.separationRadius
-        );
-
-        for (const other of candidates) {
-            if (other.id === agent.id) {
-                continue;
-            }
-
-            const dx = agent.position.x - other.position.x;
-            const dy = agent.position.y - other.position.y;
-            const distance = Math.hypot(dx, dy);
-
-            if (distance === 0 || distance >= this.separationRadius) {
-                continue;
-            }
-
-            const weight = (this.separationRadius - distance) / this.separationRadius;
-
-            separationX += (dx / distance) * weight;
-            separationY += (dy / distance) * weight;
-
-        }
-
-        return {
-            x: separationX * this.separationStrength,
-            y: separationY * this.separationStrength
-        }
-
     }
 
     private rebuildSpatialGrid(): void {

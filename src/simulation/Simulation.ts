@@ -2,20 +2,17 @@ import type {Agent} from "./Agent.ts";
 import {SpatialGrid} from "../spatial/SpatialGrid.ts";
 import type {Vector2} from "./Vector2.ts";
 import {calculateSeparation} from "./steering/calculateSeparation.ts";
+import {AgentFactory} from "./AgentFactory.ts";
 
 export class Simulation {
-
-    private readonly worldWidth: number;
-    private readonly worldHeight: number;
 
     private readonly separationRadius = 25;
     private readonly separationStrength = 50;
 
     private readonly spatialGrid: SpatialGrid<Agent>;
+    private readonly agentFactory: AgentFactory;
 
     readonly agents: Agent[];
-
-    private nextId = 0;
 
     constructor(
         worldWidth: number,
@@ -23,13 +20,12 @@ export class Simulation {
         agentCount: number
     ) {
 
-        this.worldWidth = worldWidth;
-        this.worldHeight = worldHeight;
         this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
+        this.agentFactory = new AgentFactory(worldWidth, worldHeight);
 
         this.agents = Array.from(
             {length: agentCount},
-            () => this.createAgent(),
+            () => this.agentFactory.createAgent(),
         );
 
     }
@@ -60,31 +56,6 @@ export class Simulation {
 
     }
 
-    private createAgent(): Agent {
-        return {
-            id: this.nextId++,
-
-            position: {
-                x: 20 + Math.random() * 200,
-                y: this.randomY(),
-            },
-
-            velocity: {
-                x: 0,
-                y: 0,
-            },
-
-            target: {
-                x: this.worldWidth + 20,
-                y: this.randomY(),
-            },
-
-            desiredSpeed: 40 + Math.random() * 20,
-            radius: 4
-
-        };
-    }
-
     private updateAgent(agent: Agent, deltaSeconds: number, separation: Vector2): void {
 
         const dx = agent.target.x - agent.position.x;
@@ -92,7 +63,7 @@ export class Simulation {
         const distance = Math.hypot(dx, dy);
 
         if (distance < agent.radius) {
-            this.resetAgent(agent);
+            this.agentFactory.resetAgent(agent);
             return;
         }
 
@@ -123,31 +94,8 @@ export class Simulation {
         );
 
         if (remainingDistance < agent.radius) {
-            this.resetAgent(agent);
+            this.agentFactory.resetAgent(agent);
         }
-    }
-
-    private resetAgent(agent: Agent): void {
-
-        agent.position = {
-            x: -5,
-            y: this.randomY()
-        }
-
-        agent.velocity = {
-            x: 0,
-            y: 0
-        }
-
-        agent.target = {
-            x: this.worldWidth + 20,
-            y: this.randomY()
-        }
-
-    }
-
-    private randomY(): number {
-        return 60 + Math.random() * (this.worldHeight - 120)
     }
 
     private rebuildSpatialGrid(): void {

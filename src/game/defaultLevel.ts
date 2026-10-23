@@ -18,7 +18,7 @@ export const DEFAULT_LEVEL = {
     obstacles: [
         {
             type: "circle",
-            center: {x: 500, y: 350},
+            center: {x: 500, y: 100},
             radius: 55,
         },
         {
@@ -29,8 +29,8 @@ export const DEFAULT_LEVEL = {
         },
         {
             type: "wall",
-            start: {x: 700, y: 250},
-            end: {x: 700, y: 450},
+            start: {x: 700, y: 400},
+            end: {x: 700, y: 550},
             thickness: 12,
         },
     ] satisfies readonly Obstacle[],

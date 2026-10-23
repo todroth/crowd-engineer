@@ -51,12 +51,22 @@ export function calculateProjectedAvoidance(
     const lateralDistance =
         relativeX * basis.normalX + relativeY * basis.normalY;
 
-    const clearanceRadius =
-        lateralExtent + agent.radius + clearanceMargin;
+    const longitudinalClearance = agent.radius + clearanceMargin;
 
+    const clearanceRadius =
+        lateralExtent + longitudinalClearance;
+
+// Abstand zur Vorderkante einschließlich Sicherheitsabstand.
+    const frontDistance = Math.max(
+        0,
+        forwardDistance - forwardExtent - longitudinalClearance,
+    );
+
+// Nur ausweichen, solange das Hindernis vor bzw. neben
+// dem Agenten liegt und tatsächlich relevant ist.
     if (
-        forwardDistance + forwardExtent < -clearanceRadius ||
-        forwardDistance - forwardExtent > lookAheadDistance ||
+        forwardDistance + forwardExtent < -longitudinalClearance ||
+        frontDistance > lookAheadDistance ||
         Math.abs(lateralDistance) >= clearanceRadius
     ) {
         return {x: 0, y: 0};
@@ -66,11 +76,11 @@ export function calculateProjectedAvoidance(
         ? (agent.id % 2 === 0 ? -1 : 1)
         : (lateralDistance > 0 ? -1 : 1);
 
-    const frontDistance = Math.max(0, forwardDistance - forwardExtent);
     const forwardUrgency = Math.max(
         0,
         1 - frontDistance / lookAheadDistance,
     );
+
     const lateralUrgency =
         1 - Math.abs(lateralDistance) / clearanceRadius;
 

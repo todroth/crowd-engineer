@@ -4,6 +4,7 @@ import {Simulation} from "../simulation/Simulation.ts";
 export class CrowdScene extends Phaser.Scene {
     private readonly worldWidth = 1000;
     private readonly worldHeight = 700;
+    private readonly agentCount = 1000;
 
     private simulation!: Simulation;
 
@@ -18,7 +19,7 @@ export class CrowdScene extends Phaser.Scene {
         this.simulation = new Simulation(
             this.worldWidth,
             this.worldHeight,
-            1000
+            this.agentCount
         );
 
         this.drawGrid();

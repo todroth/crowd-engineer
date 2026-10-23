@@ -18,7 +18,7 @@ export class Simulation {
     constructor(
         worldWidth: number,
         worldHeight: number,
-        agentCount = 100
+        agentCount: number
     ) {
 
         this.worldWidth = worldWidth;

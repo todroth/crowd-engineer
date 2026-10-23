@@ -1,23 +1,25 @@
-import type {SimulationConfig} from "../simulation/SimulationConfig.ts";
-import type {Obstacle} from "../simulation/Obstacle.ts";
+import type {Level} from "../simulation/Level.ts";
 
-export const DEFAULT_LEVEL = {
+export const DEFAULT_LEVEL: Level = {
     worldWidth: 1000,
     worldHeight: 700,
     agentCount: 1000,
+    seed: 1,
+
+    // Start links, Ziel jenseits des rechten Rands.
+    spawnArea: {x: 20, y: 60, width: 200, height: 580},
+    entryArea: {x: -30, y: 60, width: 25, height: 580},
+    goalArea: {x: 1000, y: 60, width: 40, height: 580},
 
     simulation: {
-        separationRadius: 25,
-        separationStrength: 50,
+        separationRadius: 16,
+        separationStrength: 30,
+        alignmentStrength: 0.3,
         maxAcceleration: 80,
 
-        obstacleLookAheadDistance: 240,
-        obstacleAvoidanceStrength: 180,
-        obstacleClearanceMargin: 24,
-
-        routeClearance: 2,
         densityRadius: 25,
-    } satisfies SimulationConfig,
+        routeClearance: 2,
+    },
 
     obstacles: [
         // Spielfeldbegrenzung oben und unten
@@ -86,5 +88,5 @@ export const DEFAULT_LEVEL = {
             center: {x: 920, y: 300},
             radius: 30,
         },
-    ] satisfies readonly Obstacle[],
-} as const;
+    ],
+};

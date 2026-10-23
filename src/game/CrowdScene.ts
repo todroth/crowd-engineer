@@ -20,13 +20,7 @@ export class CrowdScene extends Phaser.Scene {
 
     create(): void {
 
-        this.simulation = new Simulation(
-            this.level.worldWidth,
-            this.level.worldHeight,
-            this.level.agentCount,
-            this.level.simulation,
-            this.level.obstacles,
-        );
+        this.simulation = new Simulation(this.level);
 
         this.drawGrid();
         this.drawObstacles();
@@ -145,9 +139,7 @@ export class CrowdScene extends Phaser.Scene {
         );
 
         for (const agent of agents) {
-            const remainingWaypoints = agent.waypoints.slice(
-                agent.waypointIndex,
-            );
+            const remainingWaypoints = agent.route.slice(agent.routeIndex);
 
             const points = [
                 agent.position,

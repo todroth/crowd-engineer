@@ -1,240 +1,250 @@
 import type {Agent} from "./Agent.ts";
+import {AgentSpawner} from "./AgentSpawner.ts";
+import type {Level} from "./Level.ts";
 import {SpatialGrid} from "../spatial/SpatialGrid.ts";
-import type {Vector2} from "./Vector2.ts";
-import {calculateSeparation} from "./steering/calculateSeparation.ts";
-import {AgentFactory} from "./AgentFactory.ts";
-import type {SimulationConfig} from "./SimulationConfig.ts";
-import type {Obstacle} from "./Obstacle.ts";
-import {calculateObstacleAvoidance} from "./steering/calculateObstacleAvoidance.ts";
-import {resolveObstacleCollision} from "./collision/resolveObstacleCollision.ts";
-import {calculateLocalDensity} from "./metrics/calculateLocalDensity.ts";
+import {createRandom} from "./random.ts";
+import {type Collider, createColliders} from "./geometry/Collider.ts";
+import {pointClearance} from "./geometry/clearance.ts";
+import {rectContains} from "./geometry/Rect.ts";
+import {moveWithCollisions} from "./collision/moveWithCollisions.ts";
+import {createNeighborSample, sampleNeighbors} from "./crowd/sampleNeighbors.ts";
+import {resolveAgentContacts} from "./crowd/resolveAgentContacts.ts";
 import {RoutePlanner} from "./navigation/RoutePlanner.ts";
-import {getNavigationTarget} from "./navigation/getNavigationTarget.ts";
+import {RouteFollower} from "./navigation/RouteFollower.ts";
+
+/** Die Simulation läuft in festen Schritten, unabhängig von der Framerate. */
+const FIXED_STEP = 1 / 60;
+/** Obergrenze pro `update`, damit lange Frames keine Todesspirale auslösen. */
+const MAX_STEPS_PER_UPDATE = 5;
+
+/** Steering darf die Wunschgeschwindigkeit höchstens so weit überschreiten. */
+const MAX_SPEED_FACTOR = 1.5;
+const CONTACT_ITERATIONS = 3;
 
 export class Simulation {
-
-    private readonly separationRadius: number;
-    private readonly separationStrength: number;
-    private readonly maxAcceleration: number;
-    private readonly obstacleLookAheadDistance: number;
-    private readonly obstacleAvoidanceStrength: number;
-    private readonly obstacleClearanceMargin: number;
-    private readonly densityRadius: number;
-
-    private readonly spatialGrid: SpatialGrid<Agent>;
-    private readonly agentFactory: AgentFactory;
-    private readonly routePlanner: RoutePlanner;
-
     readonly agents: Agent[];
-    private readonly obstacles: readonly Obstacle[];
+    /** Anzahl der Agenten, die ihr Ziel erreicht haben. */
+    arrivedCount = 0;
 
-    constructor(
-        worldWidth: number,
-        worldHeight: number,
-        agentCount: number,
-        config: SimulationConfig,
-        obstacles: readonly Obstacle[] = [],
-    ) {
+    private readonly level: Level;
+    private readonly colliders: readonly Collider[];
+    private readonly grid: SpatialGrid;
+    private readonly neighborRadius: number;
+    private readonly spawner: AgentSpawner;
+    private readonly follower: RouteFollower;
 
-        this.separationRadius = config.separationRadius;
-        this.separationStrength = config.separationStrength;
-        this.maxAcceleration = config.maxAcceleration;
-        this.obstacleLookAheadDistance = config.obstacleLookAheadDistance;
-        this.obstacleAvoidanceStrength = config.obstacleAvoidanceStrength;
-        this.obstacleClearanceMargin = config.obstacleClearanceMargin;
-        this.densityRadius = config.densityRadius;
+    private accumulator = 0;
 
-        this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
-        this.agentFactory = new AgentFactory(worldWidth, worldHeight);
-        this.obstacles = obstacles;
+    // Wiederverwendete Puffer, damit pro Schritt nichts allokiert wird.
+    private readonly neighborBuffer: number[] = [];
+    private readonly sample = createNeighborSample();
+    private readonly nextVelocityX: Float64Array;
+    private readonly nextVelocityY: Float64Array;
 
-        this.agents = Array.from(
-            {length: agentCount},
-            () => this.agentFactory.createAgent(),
+    constructor(level: Level) {
+        const {simulation: config} = level;
+
+        this.level = level;
+        this.colliders = createColliders(level.obstacles);
+        this.neighborRadius = Math.max(
+            config.separationRadius,
+            config.densityRadius,
+        );
+        this.grid = new SpatialGrid(
+            level.worldWidth,
+            level.worldHeight,
+            this.neighborRadius,
+            level.agentCount,
+        );
+        this.spawner = new AgentSpawner(
+            level.spawnArea,
+            level.entryArea,
+            level.goalArea,
+            createRandom(level.seed),
         );
 
-        const maxAgentRadius = this.agents.reduce(
-            (maximum, agent) => Math.max(maximum, agent.radius),
-            0,
-        );
+        this.nextVelocityX = new Float64Array(level.agentCount);
+        this.nextVelocityY = new Float64Array(level.agentCount);
 
-        this.routePlanner = new RoutePlanner(
-            this.obstacles,
-            maxAgentRadius,
+        this.agents = [];
+
+        for (let i = 0; i < level.agentCount; i++) {
+            const agent = this.spawner.createAgent(this.isSpawnFree);
+
+            this.agents.push(agent);
+            this.grid.insert(agent.id, agent.position.x, agent.position.y);
+        }
+
+        const maxAgentRadius = Math.max(0, ...this.agents.map((a) => a.radius));
+
+        this.follower = new RouteFollower(
+            new RoutePlanner(
+                level.obstacles,
+                {x: 0, y: 0, width: level.worldWidth, height: level.worldHeight},
+                maxAgentRadius,
+                config.routeClearance,
+            ),
             config.routeClearance,
-            worldHeight,
         );
 
         for (const agent of this.agents) {
-            this.assignRoute(agent);
+            this.follower.assignRoute(agent);
         }
-
     }
 
     update(deltaSeconds: number): void {
-        this.rebuildSpatialGrid();
+        this.accumulator += deltaSeconds;
 
-        const neighborSearchRadius = Math.max(
-            this.separationRadius,
-            this.densityRadius,
-        );
-
-        const updates = this.agents.map((agent) => {
-            const candidates = this.spatialGrid.queryCandidates(
-                agent.position.x,
-                agent.position.y,
-                neighborSearchRadius,
-            );
-
-            agent.localDensity = calculateLocalDensity(
-                agent,
-                candidates,
-                this.densityRadius,
-            );
-
-            const separation = calculateSeparation(
-                agent,
-                candidates,
-                this.separationRadius,
-                this.separationStrength,
-            );
-
-            const hasPlannedDetour =
-                agent.waypointIndex < agent.waypoints.length - 1;
-
-            const obstacleAvoidance = hasPlannedDetour
-                ? {x: 0, y: 0}
-                : calculateObstacleAvoidance(
-                    agent,
-                    this.obstacles,
-                    this.obstacleLookAheadDistance,
-                    this.obstacleAvoidanceStrength,
-                    this.obstacleClearanceMargin,
-                );
-
-            return {
-                agent,
-                steering: {
-                    x: separation.x + obstacleAvoidance.x,
-                    y: separation.y + obstacleAvoidance.y,
-                },
-            };
-        });
-
-        for (const {agent, steering} of updates) {
-            this.updateAgent(agent, deltaSeconds, steering);
+        for (
+            let steps = 0;
+            this.accumulator >= FIXED_STEP && steps < MAX_STEPS_PER_UPDATE;
+            steps++
+        ) {
+            this.step(FIXED_STEP);
+            this.accumulator -= FIXED_STEP;
         }
 
+        // Bei Überlast Rückstand verwerfen statt ihn aufzuholen.
+        this.accumulator = Math.min(this.accumulator, FIXED_STEP);
     }
 
+    private step(deltaSeconds: number): void {
+        this.rebuildGrid();
 
-    private updateAgent(
-        agent: Agent,
-        deltaSeconds: number,
-        steering: Vector2,
-    ): void {
-        const navigationTarget = getNavigationTarget(agent);
-        const dx = navigationTarget.x - agent.position.x;
-        const dy = navigationTarget.y - agent.position.y;
-        const distance = Math.hypot(dx, dy);
-        const waypointReachDistance = Math.max(agent.radius + 1, 6);
-
-        if (distance < waypointReachDistance) {
-            this.advanceWaypointOrReset(agent);
-            return;
+        // Erst alle neuen Geschwindigkeiten aus dem Zustand zu Schrittbeginn
+        // berechnen, dann anwenden: Das Ergebnis hängt nicht von der
+        // Reihenfolge der Agenten ab.
+        for (const agent of this.agents) {
+            this.follower.update(agent, deltaSeconds);
+            this.steer(agent, deltaSeconds);
         }
-
-        // Gewünschte Geschwindigkeit in Richtung des Ziels.
-        const desiredVelocityX = (dx / distance) * agent.desiredSpeed;
-        const desiredVelocityY = (dy / distance) * agent.desiredSpeed;
-
-        let targetVelocityX = desiredVelocityX + steering.x;
-        let targetVelocityY = desiredVelocityY + steering.y;
-
-        // Maximale Zielgeschwindigkeit begrenzen.
-        const targetSpeed = Math.hypot(targetVelocityX, targetVelocityY);
-        const maxSpeed = agent.desiredSpeed * 1.5;
-
-        if (targetSpeed > maxSpeed) {
-            const scale = maxSpeed / targetSpeed;
-            targetVelocityX *= scale;
-            targetVelocityY *= scale;
-        }
-
-        // Differenz zwischen aktueller und gewünschter Geschwindigkeit.
-        const deltaVX = targetVelocityX - agent.velocity.x;
-        const deltaVY = targetVelocityY - agent.velocity.y;
-        const velocityChange = Math.hypot(deltaVX, deltaVY);
-
-        // Die Geschwindigkeit darf sich pro Frame nur begrenzt ändern.
-        const maxVelocityChange = this.maxAcceleration * deltaSeconds;
-
-        if (velocityChange > maxVelocityChange) {
-            const scale = maxVelocityChange / velocityChange;
-
-            agent.velocity.x += deltaVX * scale;
-            agent.velocity.y += deltaVY * scale;
-        } else {
-            agent.velocity.x = targetVelocityX;
-            agent.velocity.y = targetVelocityY;
-        }
-
-        const proposedPosition = {
-            x: agent.position.x + agent.velocity.x * deltaSeconds,
-            y: agent.position.y + agent.velocity.y * deltaSeconds,
-        };
-
-        const resolved = resolveObstacleCollision(
-            agent.position,
-            proposedPosition,
-            agent.velocity,
-            agent.radius,
-            this.obstacles,
-        );
-
-        agent.position.x = resolved.position.x;
-        agent.position.y = resolved.position.y;
-
-        agent.velocity.x = resolved.velocity.x;
-        agent.velocity.y = resolved.velocity.y;
-
-        const remainingDistance = Math.hypot(
-            navigationTarget.x - agent.position.x,
-            navigationTarget.y - agent.position.y,
-        );
-
-        if (remainingDistance < waypointReachDistance) {
-            this.advanceWaypointOrReset(agent);
-        }
-    }
-
-    private rebuildSpatialGrid(): void {
-        this.spatialGrid.clear();
 
         for (const agent of this.agents) {
-            this.spatialGrid.insert(
-                agent,
-                agent.position.x,
-                agent.position.y,
-            );
+            agent.velocity = {
+                x: this.nextVelocityX[agent.id],
+                y: this.nextVelocityY[agent.id],
+            };
+            this.move(agent, deltaSeconds);
         }
-    }
 
-    private assignRoute(agent: Agent): void {
-        agent.waypoints = this.routePlanner.planRoute(
-            agent.position,
-            agent.target,
+        this.rebuildGrid();
+        resolveAgentContacts(
+            this.agents,
+            this.grid,
+            this.colliders,
+            CONTACT_ITERATIONS,
         );
-        agent.waypointIndex = 0;
+
+        for (const agent of this.agents) {
+            if (rectContains(this.level.goalArea, agent.position)) {
+                this.arrive(agent);
+            }
+        }
     }
 
-    private advanceWaypointOrReset(agent: Agent): void {
-        if (agent.waypointIndex < agent.waypoints.length - 1) {
-            agent.waypointIndex++;
-            return;
+    /** Berechnet die Geschwindigkeit des nächsten Schritts (in die Puffer). */
+    private steer(agent: Agent, deltaSeconds: number): void {
+        const config = this.level.simulation;
+
+        this.grid.query(
+            agent.position.x,
+            agent.position.y,
+            this.neighborRadius,
+            this.neighborBuffer,
+        );
+        sampleNeighbors(
+            agent,
+            this.agents,
+            this.neighborBuffer,
+            config,
+            this.sample,
+        );
+        agent.localDensity = this.sample.density;
+
+        const target = this.follower.currentTarget(agent);
+        const toTargetX = target.x - agent.position.x;
+        const toTargetY = target.y - agent.position.y;
+        const distance = Math.hypot(toTargetX, toTargetY);
+        const pace = distance > 0 ? agent.desiredSpeed / distance : 0;
+
+        // Wunschgeschwindigkeit plus Einflüsse der Menge.
+        let wantedX =
+            toTargetX * pace +
+            this.sample.separationX * config.separationStrength +
+            this.sample.alignmentX * config.alignmentStrength;
+        let wantedY =
+            toTargetY * pace +
+            this.sample.separationY * config.separationStrength +
+            this.sample.alignmentY * config.alignmentStrength;
+
+        const maxSpeed = agent.desiredSpeed * MAX_SPEED_FACTOR;
+        const wantedSpeed = Math.hypot(wantedX, wantedY);
+
+        if (wantedSpeed > maxSpeed) {
+            wantedX *= maxSpeed / wantedSpeed;
+            wantedY *= maxSpeed / wantedSpeed;
         }
 
-        this.agentFactory.resetAgent(agent);
-        this.assignRoute(agent);
+        // Die Geschwindigkeit darf sich pro Schritt nur begrenzt ändern.
+        const changeX = wantedX - agent.velocity.x;
+        const changeY = wantedY - agent.velocity.y;
+        const change = Math.hypot(changeX, changeY);
+        const maxChange = config.maxAcceleration * deltaSeconds;
+        const scale = change > maxChange ? maxChange / change : 1;
+
+        this.nextVelocityX[agent.id] = agent.velocity.x + changeX * scale;
+        this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
     }
+
+    private move(agent: Agent, deltaSeconds: number): void {
+        const result = moveWithCollisions(
+            agent.position,
+            {
+                x: agent.velocity.x * deltaSeconds,
+                y: agent.velocity.y * deltaSeconds,
+            },
+            agent.velocity,
+            agent.radius,
+            this.colliders,
+        );
+
+        agent.position = result.position;
+        agent.velocity = result.velocity;
+    }
+
+    private arrive(agent: Agent): void {
+        this.arrivedCount++;
+        this.spawner.respawn(agent, this.isSpawnFree);
+        this.follower.assignRoute(agent);
+    }
+
+    private rebuildGrid(): void {
+        this.grid.clear();
+
+        for (const agent of this.agents) {
+            this.grid.insert(agent.id, agent.position.x, agent.position.y);
+        }
+    }
+
+    /** Ist an dieser Stelle Platz für einen neuen Agenten? */
+    private readonly isSpawnFree = (
+        x: number,
+        y: number,
+        radius: number,
+    ): boolean => {
+        if (pointClearance({x, y}, this.colliders) < radius) {
+            return false;
+        }
+
+        this.grid.query(x, y, 2 * radius, this.neighborBuffer);
+
+        return this.neighborBuffer.every((index) => {
+            const other = this.agents[index];
+
+            return (
+                Math.hypot(other.position.x - x, other.position.y - y) >=
+                radius + other.radius
+            );
+        });
+    };
 }

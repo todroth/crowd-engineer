@@ -26,6 +26,7 @@ export interface SimulationConfig {
     /** Bis zu diesem Abstand vor Hindernissen werden Wege gemieden (Pixel). */
     readonly wallAvoidanceDistance: number;
 
+    readonly crush: CrushConfig;
     readonly wayfinding: WayfindingConfig;
     readonly panic: PanicConfig;
 }
@@ -63,4 +64,18 @@ export interface PanicConfig {
     readonly speedBoost: number;
     /** Wie viel weniger Abstand bei voller Panik gehalten wird (Anteil der Abstoßung). */
     readonly separationReduction: number;
+}
+
+/**
+ * Quetschung: Wo es extrem dicht ist (Wandverstärkung eingerechnet), können
+ * sich Menschen kaum noch bewegen. Drängeln verdichtet die Menge an
+ * Engstellen und bremst sie dadurch selbst aus ("Faster-is-slower").
+ */
+export interface CrushConfig {
+    /** Ab dieser lokalen Dichte lässt die Beweglichkeit nach. */
+    readonly onsetDensity: number;
+    /** Bei dieser Dichte ist die Beweglichkeit auf den Restwert gesunken. */
+    readonly fullDensity: number;
+    /** Anteil der Geschwindigkeit, der bei voller Quetschung bleibt (0..1). */
+    readonly minimumMobility: number;
 }

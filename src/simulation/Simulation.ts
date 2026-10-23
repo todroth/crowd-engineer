@@ -201,7 +201,7 @@ export class Simulation {
             this.sample.separationY * separation +
             this.sample.alignmentY * config.alignmentStrength;
 
-        const maxSpeed = speed * MAX_SPEED_FACTOR;
+        const maxSpeed = speed * MAX_SPEED_FACTOR * this.mobility(agent);
         const wantedSpeed = Math.hypot(wantedX, wantedY);
 
         if (wantedSpeed > maxSpeed) {
@@ -218,6 +218,17 @@ export class Simulation {
 
         this.nextVelocityX[agent.id] = agent.velocity.x + changeX * scale;
         this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
+    }
+
+    /** Beweglichkeit (minimumMobility..1): sinkt bei Quetschung, siehe `CrushConfig`. */
+    private mobility(agent: Agent): number {
+        const {onsetDensity, fullDensity, minimumMobility} = this.level.simulation.crush;
+        const crush = Math.min(
+            1,
+            Math.max(0, (agent.localDensity - onsetDensity) / (fullDensity - onsetDensity)),
+        );
+
+        return 1 - crush * (1 - minimumMobility);
     }
 
     /** Dichte durch Nachbarn, verstärkt, wenn der Agent an einer Wand eingeklemmt ist. */

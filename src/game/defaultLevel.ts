@@ -28,6 +28,12 @@ export const DEFAULT_LEVEL: Level = {
         flowCellSize: 10,
         wallAvoidanceDistance: 12,
 
+        crush: {
+            onsetDensity: 9,
+            fullDensity: 17,
+            minimumMobility: 0.25,
+        },
+
         wayfinding: {
             sightRange: 350,
             decisionInterval: 0.8,

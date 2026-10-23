@@ -10,6 +10,10 @@ export class CrowdScene extends Phaser.Scene {
 
     private readonly personViews = new Map<number, Phaser.GameObjects.Arc>();
 
+    private routeGraphics!: Phaser.GameObjects.Graphics;
+    private showRouteDebug = false;
+    private readonly routesToDraw = 12;
+
     constructor() {
         super("CrowdScene");
     }
@@ -27,6 +31,14 @@ export class CrowdScene extends Phaser.Scene {
         this.drawGrid();
         this.drawObstacles();
         this.createPeople();
+
+        this.routeGraphics = this.add.graphics().setDepth(10);
+
+        this.input.keyboard
+            ?.addKey(Phaser.Input.Keyboard.KeyCodes.R)
+            .on("down", () => {
+                this.showRouteDebug = !this.showRouteDebug;
+            });
 
     }
 
@@ -46,6 +58,7 @@ export class CrowdScene extends Phaser.Scene {
             }
         }
 
+        this.drawRouteDebug();
     }
 
     private drawGrid(): void {
@@ -117,6 +130,56 @@ export class CrowdScene extends Phaser.Scene {
 
             this.personViews.set(agent.id, person);
         }
-
     }
+
+    private drawRouteDebug(): void {
+        this.routeGraphics.clear();
+
+        if (!this.showRouteDebug) {
+            return;
+        }
+
+        const agents = this.simulation.agents.slice(
+            0,
+            this.routesToDraw,
+        );
+
+        for (const agent of agents) {
+            const remainingWaypoints = agent.waypoints.slice(
+                agent.waypointIndex,
+            );
+
+            const points = [
+                agent.position,
+                ...remainingWaypoints,
+            ];
+
+            if (points.length < 2) {
+                continue;
+            }
+
+            this.routeGraphics.lineStyle(2, 0x00d5ff, 0.8);
+
+            for (let i = 0; i < points.length - 1; i++) {
+                this.routeGraphics.lineBetween(
+                    points[i].x,
+                    points[i].y,
+                    points[i + 1].x,
+                    points[i + 1].y,
+                );
+            }
+
+            // Wegpunkte als kleine Kreise anzeigen.
+            this.routeGraphics.fillStyle(0xffffff, 0.95);
+
+            for (const waypoint of remainingWaypoints) {
+                this.routeGraphics.fillCircle(
+                    waypoint.x,
+                    waypoint.y,
+                    3,
+                );
+            }
+        }
+    }
+
 }

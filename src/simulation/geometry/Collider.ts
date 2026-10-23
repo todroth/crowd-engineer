@@ -21,21 +21,23 @@ export interface Collider {
     readonly segments: readonly Segment[];
     readonly radius: number;
     readonly solid: Rect | null;
-    /** Umgebendes Rechteck inklusive Radius, für schnelles Aussortieren. */
-    readonly bounds: Rect;
 }
 
 export function createCollider(obstacle: Obstacle): Collider {
     switch (obstacle.type) {
         case "circle":
-            return withBounds([{a: obstacle.center, b: obstacle.center}], obstacle.radius, null);
+            return {
+                segments: [{a: obstacle.center, b: obstacle.center}],
+                radius: obstacle.radius,
+                solid: null,
+            };
 
         case "wall":
-            return withBounds(
-                [{a: obstacle.start, b: obstacle.end}],
-                obstacle.thickness / 2,
-                null,
-            );
+            return {
+                segments: [{a: obstacle.start, b: obstacle.end}],
+                radius: obstacle.thickness / 2,
+                solid: null,
+            };
 
         case "rectangle": {
             const left = obstacle.position.x;
@@ -48,41 +50,18 @@ export function createCollider(obstacle: Obstacle): Collider {
             const bottomRight = {x: right, y: bottom};
             const bottomLeft = {x: left, y: bottom};
 
-            return withBounds(
-                [
+            return {
+                segments: [
                     {a: topLeft, b: topRight},
                     {a: topRight, b: bottomRight},
                     {a: bottomRight, b: bottomLeft},
                     {a: bottomLeft, b: topLeft},
                 ],
-                0,
-                {x: left, y: top, width: obstacle.width, height: obstacle.height},
-            );
+                radius: 0,
+                solid: {x: left, y: top, width: obstacle.width, height: obstacle.height},
+            };
         }
     }
-}
-
-function withBounds(
-    segments: readonly Segment[],
-    radius: number,
-    solid: Rect | null,
-): Collider {
-    const xs = segments.flatMap(({a, b}) => [a.x, b.x]);
-    const ys = segments.flatMap(({a, b}) => [a.y, b.y]);
-    const minX = Math.min(...xs) - radius;
-    const minY = Math.min(...ys) - radius;
-
-    return {
-        segments,
-        radius,
-        solid,
-        bounds: {
-            x: minX,
-            y: minY,
-            width: Math.max(...xs) + radius - minX,
-            height: Math.max(...ys) + radius - minY,
-        },
-    };
 }
 
 export function createColliders(

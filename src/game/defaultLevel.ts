@@ -6,10 +6,10 @@ export const DEFAULT_LEVEL: Level = {
     agentCount: 1000,
     seed: 1,
 
-    // Start links, Ziel jenseits des rechten Rands.
+    // Start links, Ziel ist das Tor in der Wand am rechten Rand.
     spawnArea: {x: 20, y: 60, width: 200, height: 580},
     entryArea: {x: -30, y: 60, width: 25, height: 580},
-    goalArea: {x: 1000, y: 60, width: 40, height: 580},
+    goalArea: {x: 1000, y: 300, width: 40, height: 100},
 
     simulation: {
         separationRadius: 16,
@@ -18,7 +18,8 @@ export const DEFAULT_LEVEL: Level = {
         maxAcceleration: 80,
 
         densityRadius: 25,
-        routeClearance: 2,
+        flowCellSize: 10,
+        wallAvoidanceDistance: 12,
     },
 
     obstacles: [
@@ -32,6 +33,20 @@ export const DEFAULT_LEVEL: Level = {
         {
             type: "wall",
             start: {x: 0, y: 700},
+            end: {x: 1000, y: 700},
+            thickness: 12,
+        },
+
+        // Wand am rechten Rand mit einem Tor (y 300 bis 400)
+        {
+            type: "wall",
+            start: {x: 1000, y: 0},
+            end: {x: 1000, y: 300},
+            thickness: 12,
+        },
+        {
+            type: "wall",
+            start: {x: 1000, y: 400},
             end: {x: 1000, y: 700},
             thickness: 12,
         },

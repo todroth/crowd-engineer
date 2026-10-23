@@ -1,27 +1,31 @@
-/** Binärer Min-Heap über Knoten-IDs, sortiert nach einem externen Schlüssel. */
+/**
+ * Binärer Min-Heap über Knoten-IDs. Der Schlüssel wird beim Einfügen
+ * festgehalten; veraltete Einträge einer ID werden vom Aufrufer beim
+ * Entnehmen übersprungen ("lazy deletion").
+ */
 export class MinHeap {
-    private readonly items: number[] = [];
-    private readonly keyOf: (id: number) => number;
-
-    constructor(keyOf: (id: number) => number) {
-        this.keyOf = keyOf;
-    }
+    private readonly ids: number[] = [];
+    private readonly keys: number[] = [];
 
     get size(): number {
-        return this.items.length;
+        return this.ids.length;
     }
 
-    push(id: number): void {
-        this.items.push(id);
-        this.siftUp(this.items.length - 1);
+    push(id: number, key: number): void {
+        this.ids.push(id);
+        this.keys.push(key);
+        this.siftUp(this.ids.length - 1);
     }
 
+    /** Entnimmt die ID mit dem kleinsten Schlüssel. */
     pop(): number {
-        const top = this.items[0];
-        const last = this.items.pop()!;
+        const top = this.ids[0];
+        const lastId = this.ids.pop()!;
+        const lastKey = this.keys.pop()!;
 
-        if (this.items.length > 0) {
-            this.items[0] = last;
+        if (this.ids.length > 0) {
+            this.ids[0] = lastId;
+            this.keys[0] = lastKey;
             this.siftDown(0);
         }
 
@@ -32,7 +36,7 @@ export class MinHeap {
         while (index > 0) {
             const parent = (index - 1) >> 1;
 
-            if (this.keyOf(this.items[parent]) <= this.keyOf(this.items[index])) {
+            if (this.keys[parent] <= this.keys[index]) {
                 return;
             }
 
@@ -46,10 +50,7 @@ export class MinHeap {
             let smallest = index;
 
             for (const child of [2 * index + 1, 2 * index + 2]) {
-                if (
-                    child < this.items.length &&
-                    this.keyOf(this.items[child]) < this.keyOf(this.items[smallest])
-                ) {
+                if (child < this.ids.length && this.keys[child] < this.keys[smallest]) {
                     smallest = child;
                 }
             }
@@ -64,6 +65,7 @@ export class MinHeap {
     }
 
     private swap(i: number, j: number): void {
-        [this.items[i], this.items[j]] = [this.items[j], this.items[i]];
+        [this.ids[i], this.ids[j]] = [this.ids[j], this.ids[i]];
+        [this.keys[i], this.keys[j]] = [this.keys[j], this.keys[i]];
     }
 }

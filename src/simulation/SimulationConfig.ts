@@ -14,6 +14,8 @@ export interface SimulationConfig {
     /** Radius, in dem die lokale Dichte gemessen wird (Pixel). */
     readonly densityRadius: number;
 
-    /** Zusätzlicher Abstand der Routen zu Hindernissen (Pixel). */
-    readonly routeClearance: number;
+    /** Seitenlänge der Rasterzellen des Flow-Fields (Pixel). */
+    readonly flowCellSize: number;
+    /** Bis zu diesem Abstand vor Hindernissen werden Wege gemieden (Pixel). */
+    readonly wallAvoidanceDistance: number;
 }

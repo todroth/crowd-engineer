@@ -10,9 +10,8 @@ export class CrowdScene extends Phaser.Scene {
 
     private readonly personViews = new Map<number, Phaser.GameObjects.Arc>();
 
-    private routeGraphics!: Phaser.GameObjects.Graphics;
-    private showRouteDebug = false;
-    private readonly routesToDraw = 12;
+    private flowGraphics!: Phaser.GameObjects.Graphics;
+    private showFlowDebug = false;
 
     constructor() {
         super("CrowdScene");
@@ -26,12 +25,13 @@ export class CrowdScene extends Phaser.Scene {
         this.drawObstacles();
         this.createPeople();
 
-        this.routeGraphics = this.add.graphics().setDepth(10);
+        this.flowGraphics = this.add.graphics().setDepth(10);
 
         this.input.keyboard
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.R)
             .on("down", () => {
-                this.showRouteDebug = !this.showRouteDebug;
+                this.showFlowDebug = !this.showFlowDebug;
+                this.drawFlowFieldDebug();
             });
 
     }
@@ -51,8 +51,6 @@ export class CrowdScene extends Phaser.Scene {
                 view.setFillStyle(getDensityColor(agent.localDensity));
             }
         }
-
-        this.drawRouteDebug();
     }
 
     private drawGrid(): void {
@@ -126,52 +124,26 @@ export class CrowdScene extends Phaser.Scene {
         }
     }
 
-    private drawRouteDebug(): void {
-        this.routeGraphics.clear();
+    /** Zeigt pro Rasterzelle die Laufrichtung des Flow-Fields. */
+    private drawFlowFieldDebug(): void {
+        this.flowGraphics.clear();
 
-        if (!this.showRouteDebug) {
+        if (!this.showFlowDebug) {
             return;
         }
 
-        const agents = this.simulation.agents.slice(
-            0,
-            this.routesToDraw,
-        );
+        const length = this.level.simulation.flowCellSize * 0.7;
 
-        for (const agent of agents) {
-            const remainingWaypoints = agent.route.slice(agent.routeIndex);
+        this.flowGraphics.lineStyle(1, 0x00d5ff, 0.7);
 
-            const points = [
-                agent.position,
-                ...remainingWaypoints,
-            ];
-
-            if (points.length < 2) {
-                continue;
-            }
-
-            this.routeGraphics.lineStyle(2, 0x00d5ff, 0.8);
-
-            for (let i = 0; i < points.length - 1; i++) {
-                this.routeGraphics.lineBetween(
-                    points[i].x,
-                    points[i].y,
-                    points[i + 1].x,
-                    points[i + 1].y,
-                );
-            }
-
-            // Wegpunkte als kleine Kreise anzeigen.
-            this.routeGraphics.fillStyle(0xffffff, 0.95);
-
-            for (const waypoint of remainingWaypoints) {
-                this.routeGraphics.fillCircle(
-                    waypoint.x,
-                    waypoint.y,
-                    3,
-                );
-            }
-        }
+        this.simulation.flowField.forEachDirection((x, y, dx, dy) => {
+            this.flowGraphics.lineBetween(
+                x - dx * length / 2,
+                y - dy * length / 2,
+                x + dx * length / 2,
+                y + dy * length / 2,
+            );
+        });
     }
 
 }

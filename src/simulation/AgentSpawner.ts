@@ -5,19 +5,17 @@ import type {Rect} from "./geometry/Rect.ts";
 const SPEED_RANGE = {min: 40, max: 60};
 const AGENT_RADIUS = 4;
 
-/** Erzeugt Agenten und wählt Startpunkt und Ziel zufällig aus den Bereichen. */
+/** Erzeugt Agenten und platziert sie zufällig auf freien Plätzen. */
 export class AgentSpawner {
     private readonly spawnArea: Rect;
     private readonly entryArea: Rect;
-    private readonly goalArea: Rect;
     private readonly random: Random;
 
     private nextId = 0;
 
-    constructor(spawnArea: Rect, entryArea: Rect, goalArea: Rect, random: Random) {
+    constructor(spawnArea: Rect, entryArea: Rect, random: Random) {
         this.spawnArea = spawnArea;
         this.entryArea = entryArea;
-        this.goalArea = goalArea;
         this.random = random;
     }
 
@@ -30,10 +28,6 @@ export class AgentSpawner {
                 SPEED_RANGE.min +
                 this.random() * (SPEED_RANGE.max - SPEED_RANGE.min),
             radius: AGENT_RADIUS,
-            goal: {x: 0, y: 0},
-            route: [],
-            routeIndex: 0,
-            replanCooldown: 0,
             localDensity: 0,
         };
 
@@ -42,7 +36,7 @@ export class AgentSpawner {
         return agent;
     }
 
-    /** Lässt den Agenten wieder von außen in die Welt einlaufen, mit neuem Ziel. */
+    /** Lässt den Agenten wieder von außen in die Welt einlaufen. */
     respawn(
         agent: Agent,
         isFree: (x: number, y: number, radius: number) => boolean,
@@ -57,9 +51,6 @@ export class AgentSpawner {
     ): void {
         agent.position = this.findFreePosition(area, agent.radius, isFree);
         agent.velocity = {x: 0, y: 0};
-        agent.goal = this.randomPointIn(this.goalArea);
-        agent.route = [];
-        agent.routeIndex = 0;
         agent.localDensity = 0;
     }
 

@@ -9,8 +9,8 @@ import {rectContains} from "./geometry/Rect.ts";
 import {moveWithCollisions} from "./collision/moveWithCollisions.ts";
 import {createNeighborSample, sampleNeighbors} from "./crowd/sampleNeighbors.ts";
 import {resolveAgentContacts} from "./crowd/resolveAgentContacts.ts";
-import {RoutePlanner} from "./navigation/RoutePlanner.ts";
-import {RouteFollower} from "./navigation/RouteFollower.ts";
+import {FlowField} from "./navigation/FlowField.ts";
+import type {Vector2} from "./Vector2.ts";
 
 /** Die Simulation läuft in festen Schritten, unabhängig von der Framerate. */
 const FIXED_STEP = 1 / 60;
@@ -31,13 +31,15 @@ export class Simulation {
     private readonly grid: SpatialGrid;
     private readonly neighborRadius: number;
     private readonly spawner: AgentSpawner;
-    private readonly follower: RouteFollower;
+    /** Laufrichtungen zum Zielbereich. */
+    readonly flowField: FlowField;
 
     private accumulator = 0;
 
     // Wiederverwendete Puffer, damit pro Schritt nichts allokiert wird.
     private readonly neighborBuffer: number[] = [];
     private readonly sample = createNeighborSample();
+    private readonly direction: Vector2 = {x: 0, y: 0};
     private readonly nextVelocityX: Float64Array;
     private readonly nextVelocityY: Float64Array;
 
@@ -59,7 +61,6 @@ export class Simulation {
         this.spawner = new AgentSpawner(
             level.spawnArea,
             level.entryArea,
-            level.goalArea,
             createRandom(level.seed),
         );
 
@@ -75,21 +76,16 @@ export class Simulation {
             this.grid.insert(agent.id, agent.position.x, agent.position.y);
         }
 
-        const maxAgentRadius = Math.max(0, ...this.agents.map((a) => a.radius));
-
-        this.follower = new RouteFollower(
-            new RoutePlanner(
-                level.obstacles,
-                {x: 0, y: 0, width: level.worldWidth, height: level.worldHeight},
-                maxAgentRadius,
-                config.routeClearance,
-            ),
-            config.routeClearance,
+        this.flowField = new FlowField(
+            this.colliders,
+            this.fieldBounds(),
+            level.goalArea,
+            {
+                cellSize: config.flowCellSize,
+                agentRadius: Math.max(0, ...this.agents.map((a) => a.radius)),
+                wallAvoidanceDistance: config.wallAvoidanceDistance,
+            },
         );
-
-        for (const agent of this.agents) {
-            this.follower.assignRoute(agent);
-        }
     }
 
     update(deltaSeconds: number): void {
@@ -115,7 +111,6 @@ export class Simulation {
         // berechnen, dann anwenden: Das Ergebnis hängt nicht von der
         // Reihenfolge der Agenten ab.
         for (const agent of this.agents) {
-            this.follower.update(agent, deltaSeconds);
             this.steer(agent, deltaSeconds);
         }
 
@@ -161,19 +156,15 @@ export class Simulation {
         );
         agent.localDensity = this.sample.density;
 
-        const target = this.follower.currentTarget(agent);
-        const toTargetX = target.x - agent.position.x;
-        const toTargetY = target.y - agent.position.y;
-        const distance = Math.hypot(toTargetX, toTargetY);
-        const pace = distance > 0 ? agent.desiredSpeed / distance : 0;
+        this.flowDirection(agent);
 
         // Wunschgeschwindigkeit plus Einflüsse der Menge.
         let wantedX =
-            toTargetX * pace +
+            this.direction.x * agent.desiredSpeed +
             this.sample.separationX * config.separationStrength +
             this.sample.alignmentX * config.alignmentStrength;
         let wantedY =
-            toTargetY * pace +
+            this.direction.y * agent.desiredSpeed +
             this.sample.separationY * config.separationStrength +
             this.sample.alignmentY * config.alignmentStrength;
 
@@ -196,6 +187,46 @@ export class Simulation {
         this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
     }
 
+    /** Laufrichtung des Agenten in `this.direction`; ohne Feldwert geradeaus zum Zielbereich. */
+    private flowDirection(agent: Agent): void {
+        if (
+            this.flowField.sampleDirection(
+                agent.position.x,
+                agent.position.y,
+                this.direction,
+            )
+        ) {
+            return;
+        }
+
+        const {goalArea} = this.level;
+        const dx = goalArea.x + goalArea.width / 2 - agent.position.x;
+        const dy = goalArea.y + goalArea.height / 2 - agent.position.y;
+        const distance = Math.hypot(dx, dy) || 1;
+
+        this.direction.x = dx / distance;
+        this.direction.y = dy / distance;
+    }
+
+    /** Rasterbereich des Flow-Fields: Welt plus Ein- und Austrittsbereich. */
+    private fieldBounds() {
+        const {worldWidth, worldHeight, entryArea, goalArea} = this.level;
+        const left = Math.min(0, entryArea.x, goalArea.x);
+        const top = Math.min(0, entryArea.y, goalArea.y);
+        const right = Math.max(
+            worldWidth,
+            entryArea.x + entryArea.width,
+            goalArea.x + goalArea.width,
+        );
+        const bottom = Math.max(
+            worldHeight,
+            entryArea.y + entryArea.height,
+            goalArea.y + goalArea.height,
+        );
+
+        return {x: left, y: top, width: right - left, height: bottom - top};
+    }
+
     private move(agent: Agent, deltaSeconds: number): void {
         const result = moveWithCollisions(
             agent.position,
@@ -215,7 +246,6 @@ export class Simulation {
     private arrive(agent: Agent): void {
         this.arrivedCount++;
         this.spawner.respawn(agent, this.isSpawnFree);
-        this.follower.assignRoute(agent);
     }
 
     private rebuildGrid(): void {

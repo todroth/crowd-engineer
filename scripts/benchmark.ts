@@ -14,7 +14,6 @@ const agents = simulation.agents;
 function report(time: number, arrivedSinceLast: number): void {
     let speedSum = 0;
     let slow = 0;
-    let atWaypoint = 0;
     let insideObstacle = 0;
     let overlaps = 0;
 
@@ -22,16 +21,6 @@ function report(time: number, arrivedSinceLast: number): void {
         const speed = Math.hypot(agent.velocity.x, agent.velocity.y);
         speedSum += speed;
         slow += speed < 8 ? 1 : 0;
-
-        const waypoint = agent.route[agent.routeIndex];
-        const intermediate = agent.routeIndex < agent.route.length - 1;
-
-        if (
-            intermediate && speed < 15 &&
-            Math.hypot(waypoint.x - agent.position.x, waypoint.y - agent.position.y) < 20
-        ) {
-            atWaypoint++;
-        }
 
         if (pointClearance(agent.position, colliders) < agent.radius - 0.05) {
             insideObstacle++;
@@ -53,7 +42,7 @@ function report(time: number, arrivedSinceLast: number): void {
 
     console.log(
         `t=${String(time).padStart(3)}s  avgSpeed=${(speedSum / agents.length).toFixed(1).padStart(5)}` +
-        `  slow=${String(slow).padStart(4)}  atWaypoint=${String(atWaypoint).padStart(3)}` +
+        `  slow=${String(slow).padStart(4)}` +
         `  overlaps=${String(overlaps).padStart(4)}  inObstacle=${insideObstacle}` +
         `  arrived/10s=${arrivedSinceLast}`,
     );

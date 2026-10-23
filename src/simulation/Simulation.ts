@@ -9,6 +9,7 @@ export class Simulation {
 
     private readonly separationRadius: number;
     private readonly separationStrength: number;
+    private readonly maxAcceleration: number;
 
     private readonly spatialGrid: SpatialGrid<Agent>;
     private readonly agentFactory: AgentFactory;
@@ -24,6 +25,7 @@ export class Simulation {
 
         this.separationRadius = config.separationRadius;
         this.separationStrength = config.separationStrength;
+        this.maxAcceleration = config.maxAcceleration;
 
         this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
         this.agentFactory = new AgentFactory(worldWidth, worldHeight);
@@ -61,8 +63,12 @@ export class Simulation {
 
     }
 
-    private updateAgent(agent: Agent, deltaSeconds: number, separation: Vector2): void {
 
+    private updateAgent(
+        agent: Agent,
+        deltaSeconds: number,
+        separation: Vector2,
+    ): void {
         const dx = agent.target.x - agent.position.x;
         const dy = agent.target.y - agent.position.y;
         const distance = Math.hypot(dx, dy);
@@ -72,30 +78,49 @@ export class Simulation {
             return;
         }
 
+        // Gewünschte Geschwindigkeit in Richtung des Ziels.
         const desiredVelocityX = (dx / distance) * agent.desiredSpeed;
         const desiredVelocityY = (dy / distance) * agent.desiredSpeed;
 
-        let vx = desiredVelocityX + separation.x;
-        let vy = desiredVelocityY + separation.y;
+        // Separation verändert die gewünschte Bewegungsrichtung.
+        let targetVelocityX = desiredVelocityX + separation.x;
+        let targetVelocityY = desiredVelocityY + separation.y;
 
-        const speed = Math.hypot(vx, vy);
+        // Maximale Zielgeschwindigkeit begrenzen.
+        const targetSpeed = Math.hypot(targetVelocityX, targetVelocityY);
         const maxSpeed = agent.desiredSpeed * 1.5;
 
-        if (speed > maxSpeed) {
-            const scale = maxSpeed / speed;
-            vx *= scale;
-            vy *= scale;
+        if (targetSpeed > maxSpeed) {
+            const scale = maxSpeed / targetSpeed;
+            targetVelocityX *= scale;
+            targetVelocityY *= scale;
         }
 
-        agent.velocity.x = vx;
-        agent.velocity.y = vy;
+        // Differenz zwischen aktueller und gewünschter Geschwindigkeit.
+        const deltaVX = targetVelocityX - agent.velocity.x;
+        const deltaVY = targetVelocityY - agent.velocity.y;
+        const velocityChange = Math.hypot(deltaVX, deltaVY);
 
-        agent.position.x += vx * deltaSeconds;
-        agent.position.y += vy * deltaSeconds;
+        // Die Geschwindigkeit darf sich pro Frame nur begrenzt ändern.
+        const maxVelocityChange = this.maxAcceleration * deltaSeconds;
+
+        if (velocityChange > maxVelocityChange) {
+            const scale = maxVelocityChange / velocityChange;
+
+            agent.velocity.x += deltaVX * scale;
+            agent.velocity.y += deltaVY * scale;
+        } else {
+            agent.velocity.x = targetVelocityX;
+            agent.velocity.y = targetVelocityY;
+        }
+
+        // Mit der tatsächlich erreichten Geschwindigkeit bewegen.
+        agent.position.x += agent.velocity.x * deltaSeconds;
+        agent.position.y += agent.velocity.y * deltaSeconds;
 
         const remainingDistance = Math.hypot(
             agent.target.x - agent.position.x,
-            agent.target.y - agent.position.y
+            agent.target.y - agent.position.y,
         );
 
         if (remainingDistance < agent.radius) {

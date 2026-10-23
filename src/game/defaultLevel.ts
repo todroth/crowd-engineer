@@ -7,6 +7,7 @@ export const DEFAULT_LEVEL = {
 
     simulation: {
         separationRadius: 25,
-        separationStrength: 50
+        separationStrength: 50,
+        maxAcceleration: 80,
     } satisfies SimulationConfig
 } as const;

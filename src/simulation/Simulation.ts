@@ -6,6 +6,7 @@ import {AgentFactory} from "./AgentFactory.ts";
 import type {SimulationConfig} from "./SimulationConfig.ts";
 import type {Obstacle} from "./Obstacle.ts";
 import {calculateObstacleAvoidance} from "./steering/calculateObstacleAvoidance.ts";
+import {resolveObstacleCollision} from "./collision/resolveObstacleCollision.ts";
 
 export class Simulation {
 
@@ -138,9 +139,24 @@ export class Simulation {
             agent.velocity.y = targetVelocityY;
         }
 
-        // Mit der tatsächlich erreichten Geschwindigkeit bewegen.
-        agent.position.x += agent.velocity.x * deltaSeconds;
-        agent.position.y += agent.velocity.y * deltaSeconds;
+        const proposedPosition = {
+            x: agent.position.x + agent.velocity.x * deltaSeconds,
+            y: agent.position.y + agent.velocity.y * deltaSeconds,
+        };
+
+        const resolved = resolveObstacleCollision(
+            agent.position,
+            proposedPosition,
+            agent.velocity,
+            agent.radius,
+            this.obstacles,
+        );
+
+        agent.position.x = resolved.position.x;
+        agent.position.y = resolved.position.y;
+
+        agent.velocity.x = resolved.velocity.x;
+        agent.velocity.y = resolved.velocity.y;
 
         const remainingDistance = Math.hypot(
             agent.target.x - agent.position.x,

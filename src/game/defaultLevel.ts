@@ -10,15 +10,19 @@ export const DEFAULT_LEVEL = {
         separationRadius: 25,
         separationStrength: 50,
         maxAcceleration: 80,
-        obstacleLookAheadDistance: 150,
-        obstacleAvoidanceStrength: 100,
-        obstacleClearanceMargin: 16,
+        obstacleLookAheadDistance: 240,
+        obstacleAvoidanceStrength: 180,
+        obstacleClearanceMargin: 24,
     } satisfies SimulationConfig,
 
     obstacles: [
         {
             position: {x: 500, y: 350},
             radius: 55
+        },
+        {
+            position: {x: 100, y: 100},
+            radius: 10
         }
     ] satisfies readonly Obstacle[],
 } as const;

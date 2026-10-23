@@ -30,7 +30,9 @@ export class AgentFactory {
             },
 
             desiredSpeed: 40 + Math.random() * 20,
-            radius: 4
+            radius: 4,
+
+            localDensity: 0
 
         };
     }
@@ -41,17 +43,19 @@ export class AgentFactory {
         agent.position = {
             x: -5,
             y: this.randomY()
-        }
+        };
 
         agent.velocity = {
             x: 0,
             y: 0
-        }
+        };
 
         agent.target = {
             x: this.worldWidth + 20,
             y: this.randomY()
-        }
+        };
+
+        agent.localDensity = 0;
 
     }
 

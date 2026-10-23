@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
 import {DEFAULT_LEVEL} from "./defaultLevel.ts";
+import {getDensityColor} from "./getDensityColor.ts";
 
 export class CrowdScene extends Phaser.Scene {
     private simulation!: Simulation;
@@ -40,7 +41,8 @@ export class CrowdScene extends Phaser.Scene {
                 view.setPosition(
                     agent.position.x,
                     agent.position.y,
-                )
+                );
+                view.setFillStyle(getDensityColor(agent.localDensity));
             }
         }
 
@@ -110,7 +112,7 @@ export class CrowdScene extends Phaser.Scene {
                 agent.position.x,
                 agent.position.y,
                 agent.radius,
-                0xe9aa43
+                getDensityColor(agent.localDensity)
             );
 
             this.personViews.set(agent.id, person);

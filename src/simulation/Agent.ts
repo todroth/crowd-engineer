@@ -10,4 +10,6 @@ export interface Agent {
     readonly desiredSpeed: number;
     readonly radius: number;
 
+    localDensity: number;
+
 }

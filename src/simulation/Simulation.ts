@@ -7,6 +7,7 @@ import type {SimulationConfig} from "./SimulationConfig.ts";
 import type {Obstacle} from "./Obstacle.ts";
 import {calculateObstacleAvoidance} from "./steering/calculateObstacleAvoidance.ts";
 import {resolveObstacleCollision} from "./collision/resolveObstacleCollision.ts";
+import {calculateLocalDensity} from "./metrics/calculateLocalDensity.ts";
 
 export class Simulation {
 
@@ -16,6 +17,7 @@ export class Simulation {
     private readonly obstacleLookAheadDistance: number;
     private readonly obstacleAvoidanceStrength: number;
     private readonly obstacleClearanceMargin: number;
+    private readonly densityRadius: number;
 
     private readonly spatialGrid: SpatialGrid<Agent>;
     private readonly agentFactory: AgentFactory;
@@ -37,6 +39,7 @@ export class Simulation {
         this.obstacleLookAheadDistance = config.obstacleLookAheadDistance;
         this.obstacleAvoidanceStrength = config.obstacleAvoidanceStrength;
         this.obstacleClearanceMargin = config.obstacleClearanceMargin;
+        this.densityRadius = config.densityRadius;
 
         this.spatialGrid = new SpatialGrid<Agent>(this.separationRadius);
         this.agentFactory = new AgentFactory(worldWidth, worldHeight);
@@ -52,11 +55,22 @@ export class Simulation {
     update(deltaSeconds: number): void {
         this.rebuildSpatialGrid();
 
+        const neighborSearchRadius = Math.max(
+            this.separationRadius,
+            this.densityRadius,
+        );
+
         const updates = this.agents.map((agent) => {
             const candidates = this.spatialGrid.queryCandidates(
                 agent.position.x,
                 agent.position.y,
-                this.separationRadius,
+                neighborSearchRadius,
+            );
+
+            agent.localDensity = calculateLocalDensity(
+                agent,
+                candidates,
+                this.densityRadius,
             );
 
             const separation = calculateSeparation(

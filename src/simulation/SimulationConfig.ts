@@ -6,4 +6,6 @@ export interface SimulationConfig {
     readonly obstacleLookAheadDistance: number;
     readonly obstacleAvoidanceStrength: number;
     readonly obstacleClearanceMargin: number;
+
+    readonly densityRadius: number;
 }

@@ -12,4 +12,14 @@ export interface Agent {
 
     /** Gewichtete Zahl der Nachbarn im Dichteradius. */
     localDensity: number;
+
+    /** 0 = ruhig, 1 = panisch. */
+    panic: number;
+
+    /** Index des gewählten Weges, -1 = noch keiner (geradeaus zum Ziel). */
+    routeChoice: number;
+    /** Hat den Eingang eines Weges durchquert und folgt nun dem Hauptfeld. */
+    committed: boolean;
+    /** Zeit (s) bis zur nächsten Überlegung. */
+    decisionTimer: number;
 }

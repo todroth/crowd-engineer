@@ -29,6 +29,10 @@ export class AgentSpawner {
                 this.random() * (SPEED_RANGE.max - SPEED_RANGE.min),
             radius: AGENT_RADIUS,
             localDensity: 0,
+            panic: 0,
+            routeChoice: -1,
+            committed: false,
+            decisionTimer: 0,
         };
 
         this.place(agent, this.spawnArea, isFree);
@@ -52,6 +56,10 @@ export class AgentSpawner {
         agent.position = this.findFreePosition(area, agent.radius, isFree);
         agent.velocity = {x: 0, y: 0};
         agent.localDensity = 0;
+        agent.panic = 0;
+        agent.routeChoice = -1;
+        agent.committed = false;
+        agent.decisionTimer = 0;
     }
 
     /**

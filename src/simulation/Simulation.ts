@@ -8,8 +8,12 @@ import {pointClearance} from "./geometry/clearance.ts";
 import {rectContains} from "./geometry/Rect.ts";
 import {moveWithCollisions} from "./collision/moveWithCollisions.ts";
 import {createNeighborSample, sampleNeighbors} from "./crowd/sampleNeighbors.ts";
+import {calculateWallProximity} from "./crowd/wallProximity.ts";
 import {resolveAgentContacts} from "./crowd/resolveAgentContacts.ts";
 import {FlowField} from "./navigation/FlowField.ts";
+import {Wayfinder} from "./navigation/Wayfinder.ts";
+import {perceiveCrowd} from "./crowd/perceiveCrowd.ts";
+import {updatePanic} from "./crowd/updatePanic.ts";
 import type {Vector2} from "./Vector2.ts";
 
 /** Die Simulation läuft in festen Schritten, unabhängig von der Framerate. */
@@ -33,11 +37,13 @@ export class Simulation {
     private readonly spawner: AgentSpawner;
     /** Laufrichtungen zum Zielbereich. */
     readonly flowField: FlowField;
+    private readonly wayfinder: Wayfinder;
 
     private accumulator = 0;
 
     // Wiederverwendete Puffer, damit pro Schritt nichts allokiert wird.
     private readonly neighborBuffer: number[] = [];
+    private readonly perceptionBuffer: number[] = [];
     private readonly sample = createNeighborSample();
     private readonly direction: Vector2 = {x: 0, y: 0};
     private readonly nextVelocityX: Float64Array;
@@ -58,11 +64,9 @@ export class Simulation {
             this.neighborRadius,
             level.agentCount,
         );
-        this.spawner = new AgentSpawner(
-            level.spawnArea,
-            level.entryArea,
-            createRandom(level.seed),
-        );
+        const random = createRandom(level.seed);
+
+        this.spawner = new AgentSpawner(level.spawnArea, level.entryArea, random);
 
         this.nextVelocityX = new Float64Array(level.agentCount);
         this.nextVelocityY = new Float64Array(level.agentCount);
@@ -85,6 +89,24 @@ export class Simulation {
                 agentRadius: Math.max(0, ...this.agents.map((a) => a.radius)),
                 wallAvoidanceDistance: config.wallAvoidanceDistance,
             },
+        );
+        const fieldOptions = {
+            cellSize: config.flowCellSize,
+            agentRadius: Math.max(0, ...this.agents.map((a) => a.radius)),
+            wallAvoidanceDistance: config.wallAvoidanceDistance,
+        };
+
+        this.wayfinder = new Wayfinder(
+            this.colliders,
+            this.flowField,
+            level.routes.map(
+                (entrance) =>
+                    new FlowField(this.colliders, this.fieldBounds(), entrance, fieldOptions),
+            ),
+            level.routes,
+            level.goalArea,
+            config.wayfinding,
+            random,
         );
     }
 
@@ -154,21 +176,32 @@ export class Simulation {
             config,
             this.sample,
         );
-        agent.localDensity = this.sample.density;
+        agent.localDensity = this.measureDensity(agent);
 
-        this.flowDirection(agent);
+        updatePanic(agent, this.sample.neighborPanic, config.panic, deltaSeconds);
+
+        this.wayfinder.update(agent, deltaSeconds, (entrance) =>
+            perceiveCrowd(agent, entrance, this.agents, this.grid, this.perceptionBuffer),
+        );
+        this.wayfinder.direction(agent, this.direction);
+
+        // Panik macht schneller und lässt weniger Abstand.
+        const speed = agent.desiredSpeed * (1 + config.panic.speedBoost * agent.panic);
+        const separation =
+            config.separationStrength *
+            (1 - config.panic.separationReduction * agent.panic);
 
         // Wunschgeschwindigkeit plus Einflüsse der Menge.
         let wantedX =
-            this.direction.x * agent.desiredSpeed +
-            this.sample.separationX * config.separationStrength +
+            this.direction.x * speed +
+            this.sample.separationX * separation +
             this.sample.alignmentX * config.alignmentStrength;
         let wantedY =
-            this.direction.y * agent.desiredSpeed +
-            this.sample.separationY * config.separationStrength +
+            this.direction.y * speed +
+            this.sample.separationY * separation +
             this.sample.alignmentY * config.alignmentStrength;
 
-        const maxSpeed = agent.desiredSpeed * MAX_SPEED_FACTOR;
+        const maxSpeed = speed * MAX_SPEED_FACTOR;
         const wantedSpeed = Math.hypot(wantedX, wantedY);
 
         if (wantedSpeed > maxSpeed) {
@@ -187,25 +220,21 @@ export class Simulation {
         this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
     }
 
-    /** Laufrichtung des Agenten in `this.direction`; ohne Feldwert geradeaus zum Zielbereich. */
-    private flowDirection(agent: Agent): void {
-        if (
-            this.flowField.sampleDirection(
-                agent.position.x,
-                agent.position.y,
-                this.direction,
-            )
-        ) {
-            return;
+    /** Dichte durch Nachbarn, verstärkt, wenn der Agent an einer Wand eingeklemmt ist. */
+    private measureDensity(agent: Agent): number {
+        const {densityRadius, wallDensityFactor} = this.level.simulation;
+
+        if (this.sample.density === 0 || wallDensityFactor === 0) {
+            return this.sample.density;
         }
 
-        const {goalArea} = this.level;
-        const dx = goalArea.x + goalArea.width / 2 - agent.position.x;
-        const dy = goalArea.y + goalArea.height / 2 - agent.position.y;
-        const distance = Math.hypot(dx, dy) || 1;
+        const proximity = calculateWallProximity(
+            agent,
+            this.colliders,
+            densityRadius,
+        );
 
-        this.direction.x = dx / distance;
-        this.direction.y = dy / distance;
+        return this.sample.density * (1 + wallDensityFactor * proximity);
     }
 
     /** Rasterbereich des Flow-Fields: Welt plus Ein- und Austrittsbereich. */

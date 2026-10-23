@@ -31,6 +31,9 @@ export class FlowField {
     private readonly columns: number;
     private readonly rows: number;
 
+    /** Ankunftszeit (≈ Weglänge, in Wandnähe länger) von jeder Zelle bis ins Ziel. */
+    private readonly arrival: Float32Array;
+
     private readonly directionX: Float32Array;
     private readonly directionY: Float32Array;
     /** Hat die Zelle eine gültige Richtung (erreichbar, kein Hindernis)? */
@@ -69,19 +72,49 @@ export class FlowField {
             }
         }
 
-        const arrival = fastMarching(
-            speed,
-            this.columns,
-            this.rows,
-            cellSize,
-            goalCells,
-        );
-
+        this.arrival = fastMarching(speed, this.columns, this.rows, cellSize, goalCells);
         this.directionX = new Float32Array(cellCount);
         this.directionY = new Float32Array(cellCount);
         this.hasDirection = new Uint8Array(cellCount);
 
-        this.computeDirections(arrival);
+        this.computeDirections(this.arrival);
+    }
+
+    /**
+     * Restlicher Weg von (x, y) bis ins Ziel (bilinear interpoliert), oder
+     * `Infinity`, wenn der Punkt das Ziel nicht erreichen kann.
+     */
+    distanceAt(x: number, y: number): number {
+        const u = (x - this.origin.x) / this.cellSize - 0.5;
+        const v = (y - this.origin.y) / this.cellSize - 0.5;
+        const column = Math.floor(u);
+        const row = Math.floor(v);
+
+        let sum = 0;
+        let sumWeight = 0;
+
+        for (let dr = 0; dr <= 1; dr++) {
+            for (let dc = 0; dc <= 1; dc++) {
+                const value = this.arrival[
+                    clamp(row + dr, 0, this.rows - 1) * this.columns +
+                    clamp(column + dc, 0, this.columns - 1)
+                    ];
+
+                // Gesperrte Ecken tragen nichts bei; die übrigen werden neu gewichtet.
+                if (!Number.isFinite(value)) {
+                    continue;
+                }
+
+                const weight =
+                    (dc === 0 ? 1 - (u - column) : u - column) *
+                    (dr === 0 ? 1 - (v - row) : v - row);
+
+                sum += value * weight;
+                sumWeight += weight;
+            }
+        }
+
+        return sumWeight > 0 ? sum / sumWeight : Infinity;
     }
 
     /**

@@ -40,3 +40,27 @@ export function distanceToSegment(
 ): number {
     return distanceBetween(point, closestPointOnSegment(point, start, end));
 }
+
+/** Kreuzen sich die Strecken a-b und c-d echt (reine Berührungen zählen nicht)? */
+function segmentsCross(a: Vector2, b: Vector2, c: Vector2, d: Vector2): boolean {
+    const orientation = (p: Vector2, q: Vector2, r: Vector2): number =>
+        (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+
+    return orientation(a, b, c) * orientation(a, b, d) < 0 &&
+        orientation(c, d, a) * orientation(c, d, b) < 0;
+}
+
+/** Kleinster Abstand zwischen zwei Strecken. */
+export function segmentDistance(a: Vector2, b: Vector2, c: Vector2, d: Vector2): number {
+    if (segmentsCross(a, b, c, d)) {
+        return 0;
+    }
+
+    // Ohne Kreuzung liegt das Minimum immer an einem Endpunkt.
+    return Math.min(
+        distanceToSegment(a, c, d),
+        distanceToSegment(b, c, d),
+        distanceToSegment(c, a, b),
+        distanceToSegment(d, a, b),
+    );
+}

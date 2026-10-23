@@ -3,12 +3,23 @@ interface ColorStop {
     readonly color: number;
 }
 
+/**
+ * Je dunkler, desto schlechter. Die Skala deckt die gesamte Spanne ab, die
+ * in der Simulation vorkommt (bis etwa 20, an Wänden eingeklemmt):
+ *
+ *   hellgrün → gelb → orange:   frei bis eng
+ *   rot → dunkelrot → fast schwarz:   Gedränge bis Quetschgefahr
+ */
 const COLOR_STOPS: readonly ColorStop[] = [
-    {density: 0, color: 0x35c759},  // Grün
-    {density: 3, color: 0xffd60a},  // Gelb
-    {density: 7, color: 0xff453a},  // Rot
-    {density: 12, color: 0x7f0015}, // Dunkelrot
+    {density: 0, color: 0x6be585},  // Hellgrün: frei
+    {density: 3, color: 0xffe14d},  // Gelb: dicht
+    {density: 6, color: 0xff9f1a},  // Orange: eng
+    {density: 9, color: 0xf04438},  // Rot: sehr eng
+    {density: 12, color: 0xb0122e}, // Dunkelrot: Gedränge
+    {density: 16, color: 0x6a0a2b}, // Weinrot: gefährlich
+    {density: 20, color: 0x2a0518}, // Fast schwarz: Quetschgefahr
 ];
+
 
 function interpolateColor(
     from: number,

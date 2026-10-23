@@ -10,10 +10,12 @@ export interface NeighborSample {
     /** Differenz zwischen mittlerer Nachbargeschwindigkeit und eigener. */
     alignmentX: number;
     alignmentY: number;
+    /** Mittlere Panik der Nachbarn in Reichweite (nach Nähe gewichtet). */
+    neighborPanic: number;
 }
 
 export function createNeighborSample(): NeighborSample {
-    return {density: 0, separationX: 0, separationY: 0, alignmentX: 0, alignmentY: 0};
+    return {density: 0, separationX: 0, separationY: 0, alignmentX: 0, alignmentY: 0, neighborPanic: 0};
 }
 
 /** Goldener Winkel: verteilt Ausweichrichtungen gleichmäßig über die Ids. */
@@ -39,6 +41,7 @@ export function sampleNeighbors(
     let weightSum = 0;
     let neighborVelocityX = 0;
     let neighborVelocityY = 0;
+    let neighborPanic = 0;
 
     for (const index of neighbors) {
         const other = agents[index];
@@ -77,6 +80,7 @@ export function sampleNeighbors(
         weightSum += weight;
         neighborVelocityX += other.velocity.x * weight;
         neighborVelocityY += other.velocity.y * weight;
+        neighborPanic += other.panic * weight;
     }
 
     out.density = density;
@@ -87,9 +91,11 @@ export function sampleNeighbors(
         // Mit wenigen/fernen Nachbarn nur schwach angleichen.
         const influence = Math.min(1, weightSum);
 
+        out.neighborPanic = neighborPanic / weightSum;
         out.alignmentX = (neighborVelocityX / weightSum - agent.velocity.x) * influence;
         out.alignmentY = (neighborVelocityY / weightSum - agent.velocity.y) * influence;
     } else {
+        out.neighborPanic = 0;
         out.alignmentX = 0;
         out.alignmentY = 0;
     }

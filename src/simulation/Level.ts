@@ -13,6 +13,11 @@ export interface Level {
     readonly entryArea: Rect;
     /** Wer diesen Bereich erreicht, gilt als angekommen. */
     readonly goalArea: Rect;
+    /**
+     * Alternative Wege zum Ziel, jeweils durch ihren Eingangsbereich
+     * gegeben. Wer den Bereich durchquert, hat den Weg gewählt.
+     */
+    readonly routes: readonly Rect[];
 
     readonly obstacles: readonly Obstacle[];
     readonly simulation: SimulationConfig;

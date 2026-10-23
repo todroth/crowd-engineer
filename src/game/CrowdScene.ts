@@ -1,12 +1,11 @@
 import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
+import {DEFAULT_LEVEL} from "./defaultLevel.ts";
 
 export class CrowdScene extends Phaser.Scene {
-    private readonly worldWidth = 1000;
-    private readonly worldHeight = 700;
-    private readonly agentCount = 1000;
-
     private simulation!: Simulation;
+
+    private readonly level = DEFAULT_LEVEL;
 
     private readonly personViews = new Map<number, Phaser.GameObjects.Arc>();
 
@@ -17,9 +16,9 @@ export class CrowdScene extends Phaser.Scene {
     create(): void {
 
         this.simulation = new Simulation(
-            this.worldWidth,
-            this.worldHeight,
-            this.agentCount
+            this.level.worldWidth,
+            this.level.worldHeight,
+            this.level.agentCount
         );
 
         this.drawGrid();
@@ -49,12 +48,12 @@ export class CrowdScene extends Phaser.Scene {
         const grid = this.add.graphics();
         grid.lineStyle(1, 0x293548, 1);
 
-        for (let x = 0; x <= this.worldWidth; x += 40) {
-            grid.lineBetween(x, 0, x, this.worldHeight);
+        for (let x = 0; x <= this.level.worldWidth; x += 40) {
+            grid.lineBetween(x, 0, x, this.level.worldHeight);
         }
 
-        for (let y = 0; y <= this.worldHeight; y += 40) {
-            grid.lineBetween(0, y, this.worldWidth, y);
+        for (let y = 0; y <= this.level.worldHeight; y += 40) {
+            grid.lineBetween(0, y, this.level.worldWidth, y);
         }
 
     }

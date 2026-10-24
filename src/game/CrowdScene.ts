@@ -181,30 +181,32 @@ export class CrowdScene extends Phaser.Scene {
         ];
     }
 
-    /** Zeichnet jedes Schild als gelben Punkt mit einem Pfeil zum Eingang des Weges. */
+    /**
+     * Zeichnet jedes Schild als gelben Punkt mit einem Pfeil in Richtung des
+     * begehbaren Weges zum Eingang der Route (nicht in Luftlinie durch Wände).
+     */
     private drawSigns(plan: Plan): void {
         const graphics = this.add.graphics().setDepth(5);
+        const direction = {x: 1, y: 0};
 
         for (const sign of plan.signs) {
-            const {entrance} = this.level.routes[sign.route];
-            const dx = entrance.x + entrance.width / 2 - sign.position.x;
-            const dy = entrance.y + entrance.height / 2 - sign.position.y;
-            const length = Math.hypot(dx, dy) || 1;
-            const ux = dx / length;
-            const uy = dy / length;
-            const tipX = sign.position.x + ux * 22;
-            const tipY = sign.position.y + uy * 22;
+            if (!this.simulation.signDirection(sign, direction)) {
+                continue;
+            }
+
+            const tipX = sign.position.x + direction.x * 22;
+            const tipY = sign.position.y + direction.y * 22;
 
             graphics.lineStyle(3, 0xffd60a, 1);
             graphics.lineBetween(sign.position.x, sign.position.y, tipX, tipY);
             graphics.fillStyle(0xffd60a, 1);
             graphics.fillTriangle(
-                tipX + ux * 7,
-                tipY + uy * 7,
-                tipX - uy * 5,
-                tipY + ux * 5,
-                tipX + uy * 5,
-                tipY - ux * 5,
+                tipX + direction.x * 7,
+                tipY + direction.y * 7,
+                tipX - direction.y * 5,
+                tipY + direction.x * 5,
+                tipX + direction.y * 5,
+                tipY - direction.x * 5,
             );
             graphics.fillCircle(sign.position.x, sign.position.y, 5);
         }

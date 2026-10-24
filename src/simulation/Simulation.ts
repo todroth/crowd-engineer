@@ -2,6 +2,7 @@ import type {Agent} from "./Agent.ts";
 import {AgentSpawner} from "./AgentSpawner.ts";
 import type {Level} from "./Level.ts";
 import type {Plan} from "./Plan.ts";
+import type {Sign} from "./Sign.ts";
 import {SpatialGrid} from "../spatial/SpatialGrid.ts";
 import {createRandom} from "./random.ts";
 import {type Collider, createColliders} from "./geometry/Collider.ts";
@@ -166,6 +167,14 @@ export class Simulation {
             config.wayfinding,
             random,
         );
+    }
+
+    /**
+     * Richtung, in die ein Schild zeigen sollte: der begehbare Weg zum Eingang
+     * seiner Route (und nicht die Luftlinie durch Wände).
+     */
+    signDirection(sign: Sign, out: Vector2): boolean {
+        return this.wayfinder.routeDirection(sign.route, sign.position, out);
     }
 
     get stats(): RunStats {

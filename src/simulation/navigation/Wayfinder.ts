@@ -141,6 +141,14 @@ export class Wayfinder {
         return -1;
     }
 
+    /**
+     * Laufrichtung (Einheitsvektor) an `position` auf dem Weg zum Eingang von `route`,
+     * also dahin, wohin jemand liefe, der diesen Weg gewählt hat. `false`, wenn dort keine bekannt ist.
+     */
+    routeDirection(route: number, position: Vector2, out: Vector2): boolean {
+        return this.routes[route].toEntrance.sampleDirection(position.x, position.y, out);
+    }
+
     /** Meldet bewegliche Hindernisse an alle Felder, damit Wege daran vorbeiführen. */
     setObstructions(centers: readonly Vector2[], radius: number): void {
         const fields = new Set<FlowField>([this.mainField]);

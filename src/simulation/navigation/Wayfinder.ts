@@ -9,6 +9,9 @@ import type {Random} from "../random.ts";
 import type {WayfindingConfig} from "../SimulationConfig.ts";
 import type {FlowField} from "./FlowField.ts";
 
+/** Wie weit (in Feldeinheiten) ein Agent näher am Ziel sein muss als der Eingang, um ihn als passiert zu zählen. */
+const PASSED_ENTRANCE_MARGIN = 5;
+
 /** Wie unsicher panische Agenten ihre Wahl treffen (±Anteil der Kosten). */
 const PANIC_NOISE = 0.3;
 
@@ -80,7 +83,7 @@ export class Wayfinder {
             return;
         }
 
-        if (this.entrances.some((area) => rectContains(area, agent.position))) {
+        if (this.hasPassedEntrance(agent)) {
             agent.committed = true;
             return;
         }
@@ -94,6 +97,24 @@ export class Wayfinder {
         // Leicht streuen, damit nicht alle im selben Takt überlegen.
         agent.decisionTimer = this.config.decisionInterval * (0.75 + 0.5 * this.random());
         agent.routeChoice = this.chooseRoute(agent, perceive);
+    }
+
+    /**
+     * Hat der Agent einen Weg betreten? Entweder liegt er im Eingangsbereich,
+     * oder er ist dem Ziel schon näher als der Eingang des gewählten Weges, hat
+     * ihn also am Rand vorbei durchquert. Sonst liefe er weiter dem Feld zum
+     * Eingang nach, der inzwischen hinter ihm liegt, und würde zurückwollen.
+     */
+    private hasPassedEntrance(agent: Agent): boolean {
+        if (this.entrances.some((area) => rectContains(area, agent.position))) {
+            return true;
+        }
+
+        return (
+            agent.routeChoice >= 0 &&
+            this.mainField.distanceAt(agent.position.x, agent.position.y) <
+            this.remainingLength[agent.routeChoice] - PASSED_ENTRANCE_MARGIN
+        );
     }
 
     /** Meldet bewegliche Hindernisse an alle Felder, damit Wege daran vorbeiführen. */

@@ -14,7 +14,11 @@ export interface Scenario {
     readonly plan: Plan;
     /** Weitere Beispielpläne zum Ausprobieren und für `npm run scenarios`. */
     readonly examples?: readonly NamedPlan[];
+    /** So viele Schilder darf der Spieler aufstellen (Standard: `DEFAULT_SIGN_BUDGET`). */
+    readonly signBudget?: number;
 }
+
+export const DEFAULT_SIGN_BUDGET = 3;
 
 /**
  * Der Lauf ohne Maßnahmen: keine Schilder, keine Verzögerung. Sein Ergebnis steht

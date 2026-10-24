@@ -156,6 +156,11 @@ export class Wayfinder {
         return this.routes[route].toEntrance.sampleDirection(position.x, position.y, out);
     }
 
+    /** Begehbare Entfernung von `position` zum Eingang von `route` (`Infinity`, wenn unerreichbar). */
+    routeDistance(route: number, position: Vector2): number {
+        return this.routes[route].toEntrance.distanceAt(position.x, position.y);
+    }
+
     /** Meldet bewegliche Hindernisse an alle Felder, damit Wege daran vorbeiführen. */
     setObstructions(centers: readonly Vector2[], radius: number): void {
         const fields = new Set<FlowField>([this.mainField]);

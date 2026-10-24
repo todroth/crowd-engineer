@@ -48,13 +48,26 @@ src/
     navigation/          Fast Marching → FlowField; Wayfinder (Wegwahl, Schilder); createWayfinder
     spatial/             SpatialGrid für Nachbarschaftssuchen
   game/
-    CrowdScene.ts        Phaser-Szene: Auswahl, Tasten, Status, Ergebnis
-    Scenario.ts          Szenario = Level + Startplan + Beispielpläne; scenarioPlans()
+    CrowdScene.ts        Phaser-Szene: Phasen Planung → Lauf → Ergebnis, Eingabe, Leisten
+    PlanEditor.ts        Schilder aufstellen, umstellen, entfernen, mit Budget (ohne Phaser)
+    bestScores.ts        Bestwerte je Szenario in localStorage
+    Scenario.ts          Szenario = Level + Startplan + Beispielpläne + Schilderbudget; scenarioPlans()
     scenarios.ts         Liste aller Szenarien (Tasten 1–4)
     levels/              die Level; behavior.ts (PANIC_BEHAVIOR, CALM_BEHAVIOR), shapes.ts (wall, circle, …)
-    view/                Zeichnen: Level, Schilder, Personen, Ergebnistafel, Farbskala
+    view/                Zeichnen: Level, Ausgänge, Wegmarken, Schilder, Personen (Sprites), Ergebnis,
+                         Farben (theme.ts), Bildaufteilung (layout.ts), Texturen
 scripts/                 headless Auswertung (siehe Befehle)
 ```
+
+### Spielablauf
+
+1. **Planung:** Die Simulation ist gebaut, aber sie steht. Die Menge ist am Start zu sehen, die Eingänge der Wege sind mit A, B, C markiert. Ein Klick stellt ein Schild auf, das zunächst auf den nächstgelegenen Weg zeigt; eine Vorschau folgt dem Zeiger. Ein Klick auf ein vorhandenes Schild stellt es auf den nächsten Weg um, ein Rechtsklick entfernt es. C entfernt alle, P lädt die nächste Vorlage (Startplan, ohne Maßnahmen, Beispiele). Nach jeder Änderung wird die Simulation neu gebaut (etwa 20 ms).
+2. **Lauf:** ENTER startet. S ändert das Tempo, F zeigt das Flow-Field.
+3. **Ergebnis:** Eine Tafel zeigt die Kosten gegen den Vergleichswert und den Bestwert (`bestScores.ts`). Die Leertaste führt zurück zur Planung mit demselben Plan.
+
+Die Tasten 1–4 wechseln das Szenario (Neustart der Szene). URL: `?scenario=2&plan=1&run`, wobei `run` die Planung überspringt.
+
+Die Statusleiste oben und die Infoleiste unten liegen außerhalb der Welt (`view/layout.ts`). Die Kamera ist um die Höhe der Statusleiste verschoben. Leisten haben `setScrollFactor(0)`.
 
 ### Ein Simulationsschritt
 
@@ -97,6 +110,7 @@ Kosten = Dauer + `injuryPenalty` × (Verletzte + nicht Herausgekommene) + `crowd
 ## Stand und offene Punkte
 
 - „Faster is slower“ wird nicht wirklich reproduziert. Die Druckkopplung ist absichtlich mild, weil eine starke Kopplung die Schlange komplett blockiert.
-- Schilder sind in den jetzigen Levels ein schwacher Hebel (etwa 5–7 %). Gestaffeltes Starten wirkt in den ruhigen Szenarien viel stärker.
+- Schilder informieren mehr, als dass sie befehlen (`signInfluence` 0,1). Ein großer Bonus ließ die ganze Menge auf den beschilderten Weg kippen. Startpläne sparen 10–27 % in den Panik-Szenarien und 7–10 % in den ruhigen. Gestaffeltes Starten wirkt in den ruhigen Szenarien stärker, ist im Spiel aber noch nicht einstellbar.
 - Wartende Agenten (`releaseTime` noch nicht erreicht) werden nicht gesteuert. Ihre Dichte und Verletzung werden in dieser Zeit nicht berechnet.
+- Spiel: Bisher gibt es nur Schilder als Maßnahme. Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist. Headless-Screenshots zeigen meist nur den Anfang eines Laufs.
 - Als Nächstes geplant: Ordner (wirken lokal, dämpfen Panik, geben Richtung). Später: Rettungskräfte, Bau-Modus mit Budget, Eingriffe live, Skalierung auf 10.000 Agenten (Rendering, Datenlayout).

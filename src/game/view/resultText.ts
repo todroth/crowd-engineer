@@ -1,8 +1,14 @@
 import type {RunStats} from "../../simulation/RunStats.ts";
 import {calculateCost, referenceCost, type ScoringConfig} from "../../simulation/scoring.ts";
 
+/** Bisheriger Bestwert und ob der Lauf ihn geschlagen hat. */
+export interface BestResult {
+    readonly previous: number | undefined;
+    readonly isNew: boolean;
+}
+
 /** Text der Ergebnistafel am Ende eines Durchlaufs. */
-export function resultText(stats: RunStats, scoring: ScoringConfig): string {
+export function resultText(stats: RunStats, scoring: ScoringConfig, best: BestResult): string {
     const cost = calculateCost(stats, scoring);
     const reference = referenceCost(scoring);
     const difference = cost.total - reference.total;
@@ -19,8 +25,11 @@ export function resultText(stats: RunStats, scoring: ScoringConfig): string {
         "",
         `Kosten:      ${cost.total.toFixed(0)}  = Dauer ${cost.duration.toFixed(0)} + Verletzte ${cost.injuries.toFixed(0)} + Gedränge ${cost.crowding.toFixed(0)}`,
         `Ohne Maßnahmen: ${reference.total.toFixed(0)}  (${sign}${difference.toFixed(0)}, niedriger ist besser)`,
+        best.isNew
+            ? best.previous === undefined ? "Erster Bestwert!" : `Neuer Bestwert! (bisher ${best.previous.toFixed(0)})`
+            : `Bestwert:    ${best.previous?.toFixed(0)}`,
         "",
-        "Leertaste: Neustart",
+        "Leertaste: zurück zur Planung",
     ].join("\n");
 }
 

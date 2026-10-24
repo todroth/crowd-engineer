@@ -3,7 +3,8 @@ import type {Random} from "./random.ts";
 import type {Rect} from "./geometry/Rect.ts";
 import type {Vector2} from "./Vector2.ts";
 
-const AGENT_RADIUS = 4;
+/** Radius aller Agenten (Pixel): etwa 0,5 m Schulterbreite bei 16 px/m. */
+export const AGENT_RADIUS = 4;
 
 /** Ist an (x, y) Platz für einen Agenten mit diesem Radius? */
 export type SpawnCheck = (x: number, y: number, radius: number) => boolean;

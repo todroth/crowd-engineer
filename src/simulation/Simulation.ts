@@ -155,6 +155,23 @@ export class Simulation {
         return this.wayfinder.routeDirection(sign.route, sign.position, out);
     }
 
+    /** Begehbare Entfernung von `position` zum Eingang von Weg `route` (`Infinity`, wenn unerreichbar). */
+    routeDistance(route: number, position: Vector2): number {
+        return this.wayfinder.routeDistance(route, position);
+    }
+
+    /** Liegt der Punkt in der Welt und frei von Hindernissen (mit Platz für einen Agenten)? */
+    isWalkable(position: Vector2): boolean {
+        const {worldWidth, worldHeight} = this.level;
+        const radius = this.agents[0]?.radius ?? 0;
+
+        return (
+            position.x >= 0 && position.x <= worldWidth &&
+            position.y >= 0 && position.y <= worldHeight &&
+            pointClearance(position, this.colliders) >= radius
+        );
+    }
+
     /** Lässt die Simulation um `deltaSeconds` Echtzeit weiterlaufen (in festen Schritten). */
     update(deltaSeconds: number): void {
         if (this.finished) {

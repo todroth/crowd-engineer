@@ -201,6 +201,7 @@ export class Simulation {
             this.grid,
             this.colliders,
             CONTACT_ITERATIONS,
+            this.level.simulation.injuredWeight,
         );
 
         for (const agent of this.agents) {

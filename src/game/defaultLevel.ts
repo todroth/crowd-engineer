@@ -24,6 +24,7 @@ export const DEFAULT_LEVEL: Level = {
         separationRadius: 16,
         separationStrength: 30,
         alignmentStrength: 0.3,
+        injuredWeight: 4,
         maxAcceleration: 80,
 
         densityRadius: 25,

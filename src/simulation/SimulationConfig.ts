@@ -8,6 +8,12 @@ export interface SimulationConfig {
      * angleichen (0..1). Sorgt für das zähflüssige, wasserartige Fließen.
      */
     readonly alignmentStrength: number;
+    /**
+     * Wie träge Verletzte sind, wenn sie von anderen weggeschoben werden
+     * (Vielfaches der Masse eines gesunden Agenten). Je höher, desto
+     * schwerer lassen sie sich bewegen.
+     */
+    readonly injuredWeight: number;
     /** Maximale Beschleunigung (Pixel/s²). */
     readonly maxAcceleration: number;
 

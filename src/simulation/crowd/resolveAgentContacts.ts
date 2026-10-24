@@ -24,6 +24,7 @@ export function resolveAgentContacts(
     grid: SpatialGrid,
     colliders: readonly Collider[],
     iterations: number,
+    injuredWeight: number,
 ): void {
     const maxRadius = agents.reduce((m, agent) => Math.max(m, agent.radius), 0);
     const queryRadius = 2 * maxRadius + QUERY_PADDING;
@@ -47,7 +48,7 @@ export function resolveAgentContacts(
                     continue;
                 }
 
-                if (separatePair(agent, agents[index])) {
+                if (separatePair(agent, agents[index], injuredWeight)) {
                     moved.add(agent);
                     moved.add(agents[index]);
                 }
@@ -74,7 +75,7 @@ export function resolveAgentContacts(
 }
 
 /** Trennt zwei Agenten. Gibt zurück, ob sich etwas bewegt hat. */
-function separatePair(a: Agent, b: Agent): boolean {
+function separatePair(a: Agent, b: Agent, injuredWeight: number): boolean {
     let dx = a.position.x - b.position.x;
     let dy = a.position.y - b.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -92,13 +93,12 @@ function separatePair(a: Agent, b: Agent): boolean {
         dy /= distance;
     }
 
-    // Verletzte liegen am Boden und lassen sich nicht wegschieben: Der
-    // Gesunde weicht ganz, zwischen zwei Gesunden teilt es sich auf.
-    if (a.injured && b.injured) {
-        return false;
-    }
-
-    const shareA = a.injured ? 0 : b.injured ? 1 : 0.5;
+    // Verletzte liegen am Boden: Sie bewegen sich nicht selbst, lassen sich
+    // aber träge (je schwerer, desto weniger) wegschieben. Der Anteil der
+    // Korrektur verteilt sich umgekehrt zur Masse.
+    const massA = a.injured ? injuredWeight : 1;
+    const massB = b.injured ? injuredWeight : 1;
+    const shareA = massB / (massA + massB);
     const shareB = 1 - shareA;
     const overlap = minimumDistance - distance;
 
@@ -110,8 +110,13 @@ function separatePair(a: Agent, b: Agent): boolean {
         (a.velocity.x - b.velocity.x) * dx + (a.velocity.y - b.velocity.y) * dy;
 
     if (approach < 0) {
-        a.velocity = {x: a.velocity.x - dx * approach * shareA, y: a.velocity.y - dy * approach * shareA};
-        b.velocity = {x: b.velocity.x + dx * approach * shareB, y: b.velocity.y + dy * approach * shareB};
+        // Verletzte behalten Geschwindigkeit 0, sie rutschen nur.
+        if (!a.injured) {
+            a.velocity = {x: a.velocity.x - dx * approach * shareA, y: a.velocity.y - dy * approach * shareA};
+        }
+        if (!b.injured) {
+            b.velocity = {x: b.velocity.x + dx * approach * shareB, y: b.velocity.y + dy * approach * shareB};
+        }
     }
 
     return true;

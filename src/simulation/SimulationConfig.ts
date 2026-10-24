@@ -67,15 +67,22 @@ export interface PanicConfig {
 }
 
 /**
- * Quetschung: Wo es extrem dicht ist (Wandverstärkung eingerechnet), können
- * sich Menschen kaum noch bewegen. Drängeln verdichtet die Menge an
- * Engstellen und bremst sie dadurch selbst aus ("Faster-is-slower").
+ * Druck und Quetschung. Wer gegen ein Hindernis oder eine Menge drückt,
+ * ohne voranzukommen, erzeugt Druck (blockierter Schub). Druck wird durch
+ * die Menge weitergegeben, sodass er sich nach hinten aufstaut, und bremst
+ * die Betroffenen: Unter hohem Druck bewegt sich kaum noch jemand.
+ * Stärkeres Drängeln erhöht den Druck und verlangsamt damit den Durchfluss
+ * ("Faster-is-slower").
  */
 export interface CrushConfig {
-    /** Ab dieser lokalen Dichte lässt die Beweglichkeit nach. */
-    readonly onsetDensity: number;
-    /** Bei dieser Dichte ist die Beweglichkeit auf den Restwert gesunken. */
-    readonly fullDensity: number;
-    /** Anteil der Geschwindigkeit, der bei voller Quetschung bleibt (0..1). */
+    /** Welcher Anteil des Drucks der Nachbarn zusätzlich zum eigenen wirkt (0..<1). */
+    readonly transmission: number;
+    /** Wie schnell sich der Druck anpasst (pro Sekunde). */
+    readonly responseRate: number;
+    /** Ab diesem Druck lässt die Beweglichkeit nach. */
+    readonly onsetPressure: number;
+    /** Bei diesem Druck ist die Beweglichkeit auf den Restwert gesunken. */
+    readonly fullPressure: number;
+    /** Anteil der Geschwindigkeit, der bei vollem Druck bleibt (0..1). */
     readonly minimumMobility: number;
 }

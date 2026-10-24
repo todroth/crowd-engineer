@@ -29,9 +29,11 @@ export const DEFAULT_LEVEL: Level = {
         wallAvoidanceDistance: 12,
 
         crush: {
-            onsetDensity: 9,
-            fullDensity: 17,
-            minimumMobility: 0.25,
+            transmission: 0.8,
+            responseRate: 1,
+            onsetPressure: 3,
+            fullPressure: 10,
+            minimumMobility: 0.2,
         },
 
         wayfinding: {

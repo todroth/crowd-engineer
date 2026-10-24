@@ -23,6 +23,8 @@ const MAX_STEPS_PER_UPDATE = 5;
 
 /** Steering darf die Wunschgeschwindigkeit höchstens so weit überschreiten. */
 const MAX_SPEED_FACTOR = 1.5;
+/** Bezugstempo (Pixel/s), mit dem blockierter Schub in Druck umgerechnet wird. */
+const NORMAL_SPEED = 50;
 const CONTACT_ITERATIONS = 3;
 
 export class Simulation {
@@ -201,6 +203,8 @@ export class Simulation {
             this.sample.separationY * separation +
             this.sample.alignmentY * config.alignmentStrength;
 
+        this.updatePressure(agent, speed, deltaSeconds);
+
         const maxSpeed = speed * MAX_SPEED_FACTOR * this.mobility(agent);
         const wantedSpeed = Math.hypot(wantedX, wantedY);
 
@@ -220,15 +224,31 @@ export class Simulation {
         this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
     }
 
-    /** Beweglichkeit (minimumMobility..1): sinkt bei Quetschung, siehe `CrushConfig`. */
+    /** Beweglichkeit (minimumMobility..1): sinkt unter Druck, siehe `CrushConfig`. */
     private mobility(agent: Agent): number {
-        const {onsetDensity, fullDensity, minimumMobility} = this.level.simulation.crush;
+        const {onsetPressure, fullPressure, minimumMobility} = this.level.simulation.crush;
         const crush = Math.min(
             1,
-            Math.max(0, (agent.localDensity - onsetDensity) / (fullDensity - onsetDensity)),
+            Math.max(0, (agent.pressure - onsetPressure) / (fullPressure - onsetPressure)),
         );
 
         return 1 - crush * (1 - minimumMobility);
+    }
+
+    /**
+     * Druck = blockierter Schub: Wunschtempo abzüglich des tatsächlichen
+     * Fortschritts in Wunschrichtung (bezogen auf ein Normaltempo), dazu
+     * ein Anteil vom Druck der Nachbarn. Ein Agent, der mit mehr Schub
+     * (Panik) gegen dieselbe Blockade drückt, erzeugt mehr Druck.
+     */
+    private updatePressure(agent: Agent, speed: number, deltaSeconds: number): void {
+        const {crush} = this.level.simulation;
+        const progress =
+            agent.velocity.x * this.direction.x + agent.velocity.y * this.direction.y;
+        const blockedPush = Math.max(0, speed - progress) / NORMAL_SPEED;
+        const target = blockedPush + crush.transmission * this.sample.neighborPressure;
+
+        agent.pressure += (target - agent.pressure) * Math.min(1, crush.responseRate * deltaSeconds);
     }
 
     /** Dichte durch Nachbarn, verstärkt, wenn der Agent an einer Wand eingeklemmt ist. */

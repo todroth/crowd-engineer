@@ -30,6 +30,7 @@ export class AgentSpawner {
             radius: AGENT_RADIUS,
             localDensity: 0,
             panic: 0,
+            pressure: 0,
             routeChoice: -1,
             committed: false,
             decisionTimer: 0,
@@ -57,6 +58,7 @@ export class AgentSpawner {
         agent.velocity = {x: 0, y: 0};
         agent.localDensity = 0;
         agent.panic = 0;
+        agent.pressure = 0;
         agent.routeChoice = -1;
         agent.committed = false;
         agent.decisionTimer = 0;

@@ -53,7 +53,13 @@ export interface WayfindingConfig {
     readonly signRange: number;
     /** So lange erinnert sich ein Agent an ein gesehenes Schild (Sekunden). */
     readonly signMemory: number;
-    /** Größte Kostensenkung eines Weges durch ein Schild (Anteil, bei Stärke 1 und ohne Panik). */
+    /**
+     * Größte Kostensenkung eines Weges durch ein Schild (Anteil, bei Stärke 1 und
+     * ohne Panik). Klein halten: Ein Schild wirkt vor allem dadurch, dass es einen
+     * Weg bekannt macht; die Verteilung regelt dann das gesehene Gedränge. Ein
+     * großer Bonus lässt die ganze Menge auf den beschilderten Weg kippen, und
+     * der Engpass wandert nur dorthin.
+     */
     readonly signInfluence: number;
     /** Mittlere Zeit zwischen zwei Überlegungen eines Agenten (Sekunden). */
     readonly decisionInterval: number;

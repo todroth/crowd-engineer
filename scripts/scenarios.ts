@@ -72,7 +72,7 @@ for (const row of rows) {
         );
     });
 
-    console.log(`  ${row.name.padEnd(44)} ${cells.join("  |  ")}`);
+    console.log(`  ${row.name.padEnd(56)} ${cells.join("  |  ")}`);
 }
 
 console.log(`\n${results.length} Läufe in ${((performance.now() - started) / 1000).toFixed(0)} s`);

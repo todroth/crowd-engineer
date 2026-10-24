@@ -33,7 +33,7 @@ const BASE = {
         sightRange: 350,
         signRange: 300,
         signMemory: 30,
-        signInfluence: 0.5,
+        signInfluence: 0.1,
         decisionInterval: 0.8,
         congestionAversion: 0.25,
         switchHysteresis: 0.15,

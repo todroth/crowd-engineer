@@ -113,7 +113,7 @@ export const HALLENBRAND: Scenario = {
     },
     examples: [
         {
-            name: "Schilder am Startplatz (zu früh, schadet)",
+            name: "Schilder am Startplatz (zu früh, hilft wenig)",
             plan: {
                 releaseDelays: [],
                 signs: [

@@ -42,6 +42,8 @@ export interface RunStats {
     readonly total: number;
     /** Zahl der Agenten, die verletzt am Boden liegen. */
     readonly injured: number;
+    /** Personensekunden über der Gedränge-Schwelle (`ScoringConfig.crowdingThreshold`). */
+    readonly crowdedSeconds: number;
     /** Höchste Personendichte, die ein Agent erlebt hat (Personen pro m²). */
     readonly peakDensity: number;
 }
@@ -70,6 +72,7 @@ export class Simulation {
     private obstructedInjuredCount = 0;
     private lastObstructionUpdate = 0;
     private peakDensity = 0;
+    private crowdedSeconds = 0;
     /**
      * Umrechnung der Kernel-Dichte (`sampleNeighbors`) in Personen pro m²: Der
      * Kegelkern 1 - d/R hat das Integral πR²/3, daher Anzahl ≈ Dichte · πR²/3.
@@ -158,6 +161,7 @@ export class Simulation {
             arrived: this.arrivedCount,
             total: this.agents.length,
             injured: this.injuredCount,
+            crowdedSeconds: this.crowdedSeconds,
             peakDensity: this.peakDensity,
         };
     }
@@ -320,10 +324,13 @@ export class Simulation {
             agent.velocity = {x: 0, y: 0};
         }
 
-        this.peakDensity = Math.max(
-            this.peakDensity,
-            this.sample.density * this.personsPerSquareMeter,
-        );
+        const personsPerSquareMeter = this.sample.density * this.personsPerSquareMeter;
+
+        this.peakDensity = Math.max(this.peakDensity, personsPerSquareMeter);
+
+        if (personsPerSquareMeter > this.level.scoring.crowdingThreshold) {
+            this.crowdedSeconds += deltaSeconds;
+        }
 
         updatePanic(agent, this.sample.neighborPanic, config.panic, deltaSeconds);
 

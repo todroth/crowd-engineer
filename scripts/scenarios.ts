@@ -40,7 +40,7 @@ SCENARIOS.forEach(({level, plan}, index) => {
             const stats = simulation.stats;
             rows.push(
                 `${stats.elapsed.toFixed(0).padStart(3)} s / ${String(stats.injured).padStart(3)} Verl. ` +
-                `/ ${stats.peakDensity.toFixed(1)} P/m² / Kosten ${calculateCost(stats, level.scoring).toFixed(0).padStart(3)}`,
+                `/ Gedr. ${(stats.crowdedSeconds / 60).toFixed(0).padStart(4)} P-Min / Kosten ${calculateCost(stats, level.scoring).total.toFixed(0).padStart(4)}`,
             );
         }
 

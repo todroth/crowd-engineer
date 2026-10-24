@@ -145,7 +145,8 @@ export class CrowdScene extends Phaser.Scene {
         const stats = this.simulation.stats;
         const cost = calculateCost(stats, this.level.scoring);
         const reference = referenceCost(this.level.scoring);
-        const difference = cost - reference;
+        const difference = cost.total - reference.total;
+        const sign = difference > 0 ? "+" : "";
 
         const lines = [
             stats.arrived + stats.injured < stats.total
@@ -154,12 +155,14 @@ export class CrowdScene extends Phaser.Scene {
                     ? "Alle evakuiert, niemand verletzt"
                     : "Alle Gehfähigen sind draußen, es gab Verletzte",
             "",
-            `Evakuiert:        ${stats.arrived}/${stats.total}`,
-            `Verletzte:        ${stats.injured} (liegen am Boden)`,
-            `Dauer:            ${stats.elapsed.toFixed(1)} s`,
-            `Kosten:           ${cost.toFixed(0)}  (Dauer + ${this.level.scoring.injuryPenalty} s je Verletztem, niedriger ist besser)`,
-            `Ohne Maßnahmen:   ${reference.toFixed(0)}  (${difference <= 0 ? "" : "+"}${difference.toFixed(0)})`,
-            `Spitzendichte:    ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
+            `Evakuiert:   ${stats.arrived}/${stats.total}`,
+            `Verletzte:   ${stats.injured}`,
+            `Dauer:       ${stats.elapsed.toFixed(1)} s`,
+            `Gedränge:    ${(stats.crowdedSeconds / 60).toFixed(0)} Personen-Min. über ${this.level.scoring.crowdingThreshold} P/m²`,
+            `Spitze:      ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
+            "",
+            `Kosten:      ${cost.total.toFixed(0)}  = Dauer ${cost.duration.toFixed(0)} + Verletzte ${cost.injuries.toFixed(0)} + Gedränge ${cost.crowding.toFixed(0)}`,
+            `Ohne Maßnahmen: ${reference.total.toFixed(0)}  (${sign}${difference.toFixed(0)}, niedriger ist besser)`,
             "",
             "Leertaste: Neustart",
         ];

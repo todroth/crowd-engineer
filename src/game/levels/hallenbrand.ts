@@ -32,7 +32,9 @@ const level: Level = {
     // Level oder an der Simulation neu eintragen.
     scoring: {
         injuryPenalty: 1,
-        reference: {duration: 77, injured: 196},
+        crowdingThreshold: 4,
+        crowdingPenalty: 0.01,
+        reference: {duration: 77, injured: 196, crowdedSeconds: 7980},
     },
 
     simulation: {

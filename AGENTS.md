@@ -23,14 +23,12 @@ Es gibt keine Unit-Tests. Abgesichert wird über:
 - **Determinismus:** Gleicher Seed, gleiches Ergebnis, bis aufs Bit. Ein reines Refactoring muss `npm run fingerprint` unverändert lassen:
   `npm run fingerprint > /tmp/before.txt`, ändern, dann erneut ausführen und mit `diff` vergleichen.
 - **Verhalten:** Bei bewusst geänderter Simulation `npm run scenarios` laufen lassen und die Zahlen bewerten, danach `npm run reference` ausführen und die Werte in `scoring.reference` der Level eintragen.
-- **Browser:** Headless-Screenshot gegen den Dev-Server, etwa
+- **Browser:** `scripts/browser.ts` steuert Chrome über das DevTools-Protokoll, in Echtzeit, mit Tasten, Klicks und Screenshots. Der Dev-Server muss dafür laufen:
   ```sh
   npx vite --port 5199 &
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --user-data-dir=/tmp/chrome-prof --disable-gpu \
-    --use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --window-size=1000,700 \
-    --virtual-time-budget=5000 --screenshot=/tmp/shot.png "http://localhost:5199/?scenario=2&plan=0"
+  node scripts/browser.ts "http://localhost:5199/?scenario=2" shot:plan click:250:560 enter s s wait:30000 shot:end
   ```
-  Das dauert pro Bild bis zu einer Minute. Ohne eigenes `--user-data-dir` hängt Chrome gelegentlich, ohne ein Bild zu schreiben. Die virtuelle Zeit läuft schneller als die Simulationszeit: Das Bild zeigt oft schon einen späten Stand.
+  Die Bilder landen unter `/tmp/crowd-NAME.png`. Klick-Koordinaten sind Bildschirmpixel; die Welt beginnt 34 px unter dem oberen Rand. Chromes eigener Screenshot-Modus (`--screenshot` mit `--virtual-time-budget`) taugt nicht: Phaser rechnet darin nur die ersten Bilder, und ein Lauf bleibt bei etwa 0,1 s stehen.
 
 ## Aufbau
 
@@ -112,5 +110,5 @@ Kosten = Dauer + `injuryPenalty` × (Verletzte + nicht Herausgekommene) + `crowd
 - „Faster is slower“ wird nicht wirklich reproduziert. Die Druckkopplung ist absichtlich mild, weil eine starke Kopplung die Schlange komplett blockiert.
 - Schilder informieren mehr, als dass sie befehlen (`signInfluence` 0,1). Ein großer Bonus ließ die ganze Menge auf den beschilderten Weg kippen. Startpläne sparen 10–27 % in den Panik-Szenarien und 7–10 % in den ruhigen. Gestaffeltes Starten wirkt in den ruhigen Szenarien stärker, ist im Spiel aber noch nicht einstellbar.
 - Wartende Agenten (`releaseTime` noch nicht erreicht) werden nicht gesteuert. Ihre Dichte und Verletzung werden in dieser Zeit nicht berechnet.
-- Spiel: Bisher gibt es nur Schilder als Maßnahme. Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist. Headless-Screenshots zeigen meist nur den Anfang eines Laufs.
+- Spiel: Bisher gibt es nur Schilder als Maßnahme. Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist.
 - Als Nächstes geplant: Ordner (wirken lokal, dämpfen Panik, geben Richtung). Später: Rettungskräfte, Bau-Modus mit Budget, Eingriffe live, Skalierung auf 10.000 Agenten (Rendering, Datenlayout).

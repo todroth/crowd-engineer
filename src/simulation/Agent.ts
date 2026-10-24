@@ -46,6 +46,8 @@ export interface Agent {
      * Schild gesehen hat, erinnert sich eine Weile daran, auch wenn es verdeckt wird.
      */
     signMemory: {strength: number; secondsLeft: number}[];
+    /** Gemerkte Weisungen von Ordnern je Weg, wie `signMemory`. */
+    marshalMemory: {strength: number; secondsLeft: number}[];
     /** Hat den Eingang eines Weges durchquert und folgt nun dem Hauptfeld. */
     committed: boolean;
     /** Zeit (s) bis zur nächsten Überlegung. */

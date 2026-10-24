@@ -29,6 +29,13 @@ const BASE = {
         recovery: 0.02,
     },
 
+    marshal: {
+        range: 80,
+        calming: 0.8,
+        calmingRate: 0.4,
+        guidance: 0.5,
+    },
+
     wayfinding: {
         sightRange: 350,
         signRange: 300,

@@ -1,4 +1,5 @@
 import type {Level} from "../../simulation/Level.ts";
+import {createPlan} from "../../simulation/Plan.ts";
 import type {Scenario} from "../Scenario.ts";
 import {CALM_BEHAVIOR, WALKING_SPEED} from "./behavior.ts";
 import {circle, rectangle, wall} from "./shapes.ts";
@@ -92,9 +93,9 @@ const level: Level = {
 /** Wege: 0 = oberes Tor, 1 = mittleres Tor (bekannt), 2 = unteres Tor. */
 export const STADION: Scenario = {
     level,
-    inventory: {signs: 4},
+    inventory: {signs: 4, marshals: 2},
     // Vier Schilder an den Treppen weisen auf die beiden unbekannten äußeren Tore.
-    plan: {
+    plan: createPlan({
         releaseDelays: [0, 0, 0],
         signs: [
             {position: {x: 330, y: 120}, route: 0, strength: 0.9},
@@ -102,17 +103,26 @@ export const STADION: Scenario = {
             {position: {x: 330, y: 470}, route: 2, strength: 0.9},
             {position: {x: 330, y: 580}, route: 2, strength: 0.9},
         ],
-    },
+    }),
     examples: [
         {
+            name: "Zwei Ordner an den äußeren Treppen",
+            plan: createPlan({
+                marshals: [
+                    {position: {x: 330, y: 150}, route: 0},
+                    {position: {x: 330, y: 550}, route: 2},
+                ],
+            }),
+        },
+        {
             name: "Schilder erst im Vorplatz (wirkt besser als der Startplan)",
-            plan: {
+            plan: createPlan({
                 releaseDelays: [0, 0, 0],
                 signs: [
                     {position: {x: 600, y: 230}, route: 0, strength: 0.9},
                     {position: {x: 600, y: 470}, route: 2, strength: 0.9},
                 ],
-            },
+            }),
         },
     ],
 };

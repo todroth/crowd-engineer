@@ -1,5 +1,5 @@
 import type {Level} from "../Level.ts";
-import type {Sign} from "../Sign.ts";
+import type {Plan} from "../Plan.ts";
 import type {Collider} from "../geometry/Collider.ts";
 import type {Rect} from "../geometry/Rect.ts";
 import type {Random} from "../random.ts";
@@ -17,7 +17,7 @@ import {Wayfinder} from "./Wayfinder.ts";
 export function createWayfinder(
     level: Level,
     colliders: readonly Collider[],
-    signs: readonly Sign[],
+    plan: Plan,
     agentRadius: number,
     random: Random,
 ): Wayfinder {
@@ -44,8 +44,10 @@ export function createWayfinder(
             afterEntrance: exit === undefined ? mainField : field([level.goalAreas[exit]]),
         })),
         level.goalAreas,
-        signs,
+        plan.signs,
+        plan.marshals,
         config.wayfinding,
+        config.marshal,
         random,
     );
 }

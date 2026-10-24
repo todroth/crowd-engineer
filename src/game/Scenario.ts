@@ -1,5 +1,5 @@
 import type {Level} from "../simulation/Level.ts";
-import type {Plan} from "../simulation/Plan.ts";
+import {createPlan, type Plan} from "../simulation/Plan.ts";
 
 /** Ein Plan mit Namen für die Anzeige. */
 export interface NamedPlan {
@@ -37,7 +37,7 @@ export function scenarioInventory(scenario: Scenario): Inventory {
  * als Referenz in `Level.scoring`, gegen die jeder Plan verglichen wird.
  */
 export function planWithoutMeasures(level: Level): Plan {
-    return {signs: [], releaseDelays: level.sectors.map(() => 0)};
+    return createPlan({releaseDelays: level.sectors.map(() => 0)});
 }
 
 /**

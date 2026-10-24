@@ -43,6 +43,25 @@ export interface SimulationConfig {
     readonly injury: InjuryConfig;
     readonly wayfinding: WayfindingConfig;
     readonly panic: PanicConfig;
+    readonly marshal: MarshalConfig;
+}
+
+/** Wirkung eines Ordners auf Menschen in seiner Reichweite (mit Sichtkontakt). */
+export interface MarshalConfig {
+    /** Reichweite von Beruhigung und Weisung (Pixel). */
+    readonly range: number;
+    /**
+     * Beruhigung direkt beim Ordner (0..1); sie nimmt mit der Entfernung linear ab.
+     * Sie bremst den Anstieg der Panik und baut vorhandene mit `calmingRate` ab.
+     */
+    readonly calming: number;
+    /** Panikabbau pro Sekunde bei voller Beruhigung (0..1). */
+    readonly calmingRate: number;
+    /**
+     * Kostensenkung des gewiesenen Weges (Anteil), wie `WayfindingConfig.signInfluence`,
+     * aber von Panik nicht abgeschwächt: Eine Person mit Weste wird gehört.
+     */
+    readonly guidance: number;
 }
 
 /** Wie Agenten zwischen mehreren Wegen wählen. Sie kennen nur, was sie sehen. */

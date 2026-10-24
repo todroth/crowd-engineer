@@ -1,4 +1,5 @@
 import type {Level} from "../../simulation/Level.ts";
+import {createPlan} from "../../simulation/Plan.ts";
 import type {Scenario} from "../Scenario.ts";
 import {PANIC_BEHAVIOR, RUNNING_SPEED} from "./behavior.ts";
 import {circle, rectangle, wall} from "./shapes.ts";
@@ -80,25 +81,30 @@ const level: Level = {
 /** Wege: 0 = Tür zum Hauptausgang, 1 = Notausgang. */
 export const NACHTCLUB: Scenario = {
     level,
+    inventory: {marshals: 2},
     // Zwei Schilder zum unbekannten Notausgang verteilen die Menge.
-    plan: {
+    plan: createPlan({
         releaseDelays: [],
         signs: [
             {position: {x: 250, y: 520}, route: 1, strength: 0.9},
             {position: {x: 430, y: 600}, route: 1, strength: 0.9},
         ],
-    },
+    }),
     examples: [
         {
+            name: "Ein Ordner oben lenkt Teile der Menge zum Notausgang",
+            plan: createPlan({marshals: [{position: {x: 400, y: 150}, route: 1}]}),
+        },
+        {
             name: "Drei Schilder (zu viele, der Notausgang läuft über)",
-            plan: {
+            plan: createPlan({
                 releaseDelays: [],
                 signs: [
                     {position: {x: 250, y: 520}, route: 1, strength: 0.9},
                     {position: {x: 430, y: 600}, route: 1, strength: 0.9},
                     {position: {x: 200, y: 300}, route: 1, strength: 0.9},
                 ],
-            },
+            }),
         },
     ],
 };

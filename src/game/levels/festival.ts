@@ -1,4 +1,5 @@
 import type {Level} from "../../simulation/Level.ts";
+import {createPlan} from "../../simulation/Plan.ts";
 import type {Scenario} from "../Scenario.ts";
 import {CALM_BEHAVIOR, WALKING_SPEED} from "./behavior.ts";
 import {circle, rectangle, wall} from "./shapes.ts";
@@ -91,9 +92,21 @@ const level: Level = {
 /** Wege: 0 = Hauptbrücke, 1 = Steg im Norden. */
 export const FESTIVAL: Scenario = {
     level,
+    inventory: {marshals: 2},
+    examples: [
+        {
+            name: "Zwei Ordner auf der Wiese weisen zum Steg",
+            plan: createPlan({
+                marshals: [
+                    {position: {x: 250, y: 300}, route: 1},
+                    {position: {x: 340, y: 200}, route: 1},
+                ],
+            }),
+        },
+    ],
     // Ein Schild weist von der Wiese zum Steg und entlastet die Hauptbrücke ein wenig.
-    plan: {
+    plan: createPlan({
         releaseDelays: [0, 0, 0],
         signs: [{position: {x: 260, y: 300}, route: 1, strength: 0.9}],
-    },
+    }),
 };

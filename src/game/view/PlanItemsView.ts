@@ -1,63 +1,82 @@
 import type Phaser from "phaser";
 import type {Plan} from "../../simulation/Plan.ts";
-import type {Sign} from "../../simulation/Sign.ts";
 import type {Vector2} from "../../simulation/Vector2.ts";
-import type {Selected} from "../PlanEditor.ts";
+import type {Placement, Selected, Tool} from "../PlanEditor.ts";
 import {routeColor} from "./theme.ts";
 
-/** Länge des Pfeils vom Schild aus (Pixel). */
+/** Länge des Pfeils vom Element aus (Pixel). */
 const ARROW_LENGTH = 22;
 const SELECTION_RADIUS = 13;
 const DEPTH_ITEMS = 6;
+/** Warnwestengelb für Ordner. */
+const MARSHAL_COLOR = 0xfacc15;
 
-/** Liefert die Richtung, in die ein Schild zeigt (die Simulation erfüllt das). */
+/** Liefert die Richtung, in die ein Schild oder Ordner zeigt (die Simulation erfüllt das). */
 export interface SignDirections {
-    signDirection(sign: Sign, out: Vector2): boolean;
+    routeDirection(route: number, position: Vector2, out: Vector2): boolean;
 }
 
 /**
- * Die Elemente des Plans in der Welt: Schilder als Punkt mit Pfeil in Richtung
- * des begehbaren Weges zum Eingang ihrer Route, in der Farbe der Route. Die
- * Auswahl hat einen Ring; unter dem Zeiger erscheint eine Vorschau.
+ * Die Elemente des Plans in der Welt, in der Farbe ihres Weges und mit Pfeil in
+ * Richtung des begehbaren Weges zum Eingang. Schilder sind ein Punkt, Ordner
+ * eine gelbe Figur mit Ring und blassem Kreis für die Reichweite. Die Auswahl
+ * hat einen Ring; unter dem Zeiger erscheint eine Vorschau.
  */
 export class PlanItemsView {
     private readonly graphics: Phaser.GameObjects.Graphics;
     private readonly ghost: Phaser.GameObjects.Graphics;
     private readonly direction: Vector2 = {x: 1, y: 0};
+    private readonly marshalRange: number;
 
-    constructor(scene: Phaser.Scene) {
+    /** @param marshalRange Reichweite eines Ordners (Pixel), wird als Kreis gezeichnet */
+    constructor(scene: Phaser.Scene, marshalRange: number) {
         this.graphics = scene.add.graphics().setDepth(DEPTH_ITEMS);
         this.ghost = scene.add.graphics().setDepth(DEPTH_ITEMS).setAlpha(0.55);
+        this.marshalRange = marshalRange;
     }
 
     draw(plan: Plan, selected: Selected | null, directions: SignDirections): void {
         this.graphics.clear();
 
-        plan.signs.forEach((sign, index) => {
-            this.drawSign(this.graphics, sign, directions);
+        const isSelected = (kind: Tool, index: number) => selected?.kind === kind && selected.index === index;
 
-            if (selected?.kind === "sign" && selected.index === index) {
-                this.graphics.lineStyle(2, 0xfde68a, 1);
-                this.graphics.strokeCircle(sign.position.x, sign.position.y, SELECTION_RADIUS);
-            }
+        plan.marshals.forEach((marshal, index) => {
+            this.drawItem(this.graphics, "marshal", marshal.position, marshal.route, directions, isSelected("marshal", index));
+        });
+        plan.signs.forEach((sign, index) => {
+            this.drawItem(this.graphics, "sign", sign.position, sign.route, directions, isSelected("sign", index));
         });
     }
 
     /** Vorschau eines Elements, das man hier aufstellen würde; `null` blendet sie aus. */
-    showGhost(sign: Sign | null, directions: SignDirections): void {
+    showGhost(placement: Placement | null, directions: SignDirections): void {
         this.ghost.clear();
 
-        if (sign) {
-            this.drawSign(this.ghost, sign, directions);
+        if (placement) {
+            this.drawItem(this.ghost, placement.kind, placement.position, placement.route, directions, false);
         }
     }
 
-    private drawSign(g: Phaser.GameObjects.Graphics, sign: Sign, directions: SignDirections): void {
-        const color = routeColor(sign.route);
-        const {x, y} = sign.position;
+    private drawItem(
+        g: Phaser.GameObjects.Graphics,
+        kind: Tool,
+        position: Vector2,
+        route: number,
+        directions: SignDirections,
+        selected: boolean,
+    ): void {
+        const color = routeColor(route);
+        const {x, y} = position;
         const d = this.direction;
 
-        if (directions.signDirection(sign, d)) {
+        if (kind === "marshal") {
+            g.fillStyle(MARSHAL_COLOR, selected ? 0.12 : 0.06);
+            g.fillCircle(x, y, this.marshalRange);
+            g.lineStyle(1, MARSHAL_COLOR, selected ? 0.7 : 0.3);
+            g.strokeCircle(x, y, this.marshalRange);
+        }
+
+        if (directions.routeDirection(route, position, d)) {
             const tipX = x + d.x * ARROW_LENGTH;
             const tipY = y + d.y * ARROW_LENGTH;
 
@@ -75,10 +94,23 @@ export class PlanItemsView {
         }
 
         g.fillStyle(0x000000, 0.5);
-        g.fillCircle(x, y, 8);
-        g.fillStyle(color, 1);
-        g.fillCircle(x, y, 6);
-        g.lineStyle(2, 0xffffff, 1);
-        g.strokeCircle(x, y, 6);
+        g.fillCircle(x, y, 9);
+
+        if (kind === "marshal") {
+            g.fillStyle(MARSHAL_COLOR, 1);
+            g.fillCircle(x, y, 7);
+            g.lineStyle(3, color, 1);
+            g.strokeCircle(x, y, 7);
+        } else {
+            g.fillStyle(color, 1);
+            g.fillCircle(x, y, 6);
+            g.lineStyle(2, 0xffffff, 1);
+            g.strokeCircle(x, y, 6);
+        }
+
+        if (selected) {
+            g.lineStyle(2, 0xfde68a, 1);
+            g.strokeCircle(x, y, SELECTION_RADIUS);
+        }
     }
 }

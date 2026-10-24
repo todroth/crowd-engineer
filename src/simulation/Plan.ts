@@ -1,12 +1,15 @@
+import type {Marshal} from "./Marshal.ts";
 import type {Sign} from "./Sign.ts";
 
 /**
  * Die Entscheidungen des Spielers für einen Durchlauf. Das Level beschreibt
- * die Welt, der Plan, was man darin tut. Später kommen Ordner usw. dazu.
+ * die Welt, der Plan, was man darin tut. Später kommen weitere Maßnahmen dazu.
  */
 export interface Plan {
     /** Aufgestellte Wegweiser. */
     readonly signs: readonly Sign[];
+    /** Eingesetzte Ordner. */
+    readonly marshals: readonly Marshal[];
     /**
      * Startverzögerung je Block des Startbereichs (Sekunden), in der
      * Reihenfolge von `Level.sectors`. Fehlende Einträge zählen als 0.
@@ -16,5 +19,5 @@ export interface Plan {
 
 /** Ein Plan aus den angegebenen Teilen; Fehlendes bleibt leer. */
 export function createPlan(parts: Partial<Plan> = {}): Plan {
-    return {signs: [], releaseDelays: [], ...parts};
+    return {signs: [], marshals: [], releaseDelays: [], ...parts};
 }

@@ -1,4 +1,5 @@
 import type {Level} from "../../simulation/Level.ts";
+import {createPlan} from "../../simulation/Plan.ts";
 import type {Scenario} from "../Scenario.ts";
 import {PANIC_BEHAVIOR, RUNNING_SPEED} from "./behavior.ts";
 import {circle, wall} from "./shapes.ts";
@@ -103,31 +104,41 @@ const level: Level = {
 /** Wege: 0 = Mitte (Tunnel), 1 = oben, 2 = unten. */
 export const HALLENBRAND: Scenario = {
     level,
+    inventory: {marshals: 2},
     // Schilder dort, wo sich der Weg teilt (hinter dem Trichter), entlasten den Mitteltunnel.
-    plan: {
+    plan: createPlan({
         releaseDelays: [],
         signs: [
             {position: {x: 480, y: 150}, route: 1, strength: 0.9},
             {position: {x: 480, y: 550}, route: 2, strength: 0.9},
         ],
-    },
+    }),
     examples: [
         {
+            name: "Zwei Ordner an der Gabelung (hilft kaum)",
+            plan: createPlan({
+                marshals: [
+                    {position: {x: 480, y: 150}, route: 1},
+                    {position: {x: 480, y: 550}, route: 2},
+                ],
+            }),
+        },
+        {
             name: "Schilder am Startplatz (zu früh, hilft wenig)",
-            plan: {
+            plan: createPlan({
                 releaseDelays: [],
                 signs: [
                     {position: {x: 240, y: 110}, route: 1, strength: 0.9},
                     {position: {x: 240, y: 590}, route: 2, strength: 0.9},
                 ],
-            },
+            }),
         },
         {
             name: "Schild nur zum Mitteltunnel",
-            plan: {
+            plan: createPlan({
                 releaseDelays: [],
                 signs: [{position: {x: 460, y: 350}, route: 0, strength: 0.9}],
-            },
+            }),
         },
     ],
 };

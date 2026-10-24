@@ -81,6 +81,13 @@ Fester Zeitschritt von 1/60 s (höchstens 5 Schritte pro Frame). In jedem Schrit
 
 Jedes `Level.routes[i]` ist ein Eingangsbereich. Je Weg gibt es ein Flow-Field zum Eingang (`toEntrance`) und eines danach (`afterEntrance`). Ein Weg mit `exit` führt zu einem Ausgang, den die Menge nicht kennt. Dieser fehlt im Hauptfeld und wird nur über Sicht oder Schilder entdeckt. Der Wayfinder bewertet die sichtbaren oder per Schild bekannten Wege nach Länge, gesehenem Gedränge, Schildern, Panik und Hysterese. Wer den Eingang passiert hat, legt sich fest (`committed`).
 
+### Maßnahmen des Spielers (`Plan`)
+
+- **Schild** (`Sign`): macht einen Weg bekannt und senkt dessen Kosten leicht (`signInfluence`); Panik lässt es untergehen. Gesehene Schilder werden 30 s gemerkt (`Agent.signMemory`).
+- **Ordner** (`Marshal`, Reichweite `MarshalConfig.range`, mit Sichtlinie): beruhigt (bremst den Panikanstieg, baut Panik ab, `Simulation.marshalCalming`) und weist einen Weg (`guidance`, von Panik **nicht** abgeschwächt, gemerkt in `Agent.marshalMemory`). Er ist **kein Hindernis**: Ein Körper mitten im Strom ließ in Tests die Menge vor dem Ausgang verstopfen.
+- Ein leerer Plan verändert nichts: Läufe ohne Maßnahmen bleiben bit-identisch (`npm run fingerprint`).
+- Der Vorrat je Level steht in `Scenario.inventory`; `PlanEditor` setzt ihn durch.
+
 ### Einheiten
 
 - Positionen in Pixeln, 16 px = 1 m (`Level.pixelsPerMeter`). Agentenradius 4 px.
@@ -110,5 +117,5 @@ Kosten = Dauer + `injuryPenalty` × (Verletzte + nicht Herausgekommene) + `crowd
 - „Faster is slower“ wird nicht wirklich reproduziert. Die Druckkopplung ist absichtlich mild, weil eine starke Kopplung die Schlange komplett blockiert.
 - Schilder informieren mehr, als dass sie befehlen (`signInfluence` 0,1). Ein großer Bonus ließ die ganze Menge auf den beschilderten Weg kippen. Startpläne sparen 10–27 % in den Panik-Szenarien und 7–10 % in den ruhigen. Gestaffeltes Starten wirkt in den ruhigen Szenarien stärker, ist im Spiel aber noch nicht einstellbar.
 - Wartende Agenten (`releaseTime` noch nicht erreicht) werden nicht gesteuert. Ihre Dichte und Verletzung werden in dieser Zeit nicht berechnet.
-- Spiel: Bisher gibt es nur Schilder als Maßnahme. Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist.
+- Spiel: Maßnahmen sind Schilder und Ordner (Absperrgitter folgen). Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist.
 - Als Nächstes geplant: Ordner (wirken lokal, dämpfen Panik, geben Richtung). Später: Rettungskräfte, Bau-Modus mit Budget, Eingriffe live, Skalierung auf 10.000 Agenten (Rendering, Datenlayout).

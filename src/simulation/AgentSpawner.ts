@@ -26,6 +26,7 @@ function freshState(): Omit<Agent, "id" | "desiredSpeed" | "radius"> {
         pressure: 0,
         routeChoice: -1,
         signMemory: [],
+        marshalMemory: [],
         committed: false,
         decisionTimer: 0,
     };

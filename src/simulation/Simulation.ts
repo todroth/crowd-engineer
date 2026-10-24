@@ -3,12 +3,11 @@ import {AgentSpawner} from "./AgentSpawner.ts";
 import type {Level} from "./Level.ts";
 import type {Plan} from "./Plan.ts";
 import type {RunStats} from "./RunStats.ts";
-import type {Sign} from "./Sign.ts";
 import type {Vector2} from "./Vector2.ts";
 import {createRandom} from "./random.ts";
 import {SpatialGrid} from "./spatial/SpatialGrid.ts";
 import {type Collider, createColliders} from "./geometry/Collider.ts";
-import {pointClearance} from "./geometry/clearance.ts";
+import {hasLineOfSight, pointClearance} from "./geometry/clearance.ts";
 import {rectContains} from "./geometry/Rect.ts";
 import {moveWithCollisions} from "./collision/moveWithCollisions.ts";
 import {crowdSlowdown} from "./crowd/crowdSlowdown.ts";
@@ -125,7 +124,7 @@ export class Simulation {
         this.wayfinder = createWayfinder(
             level,
             this.colliders,
-            plan.signs,
+            plan,
             Math.max(0, ...this.agents.map((agent) => agent.radius)),
             random,
         );
@@ -148,11 +147,11 @@ export class Simulation {
     }
 
     /**
-     * Richtung, in die ein Schild zeigen sollte: der begehbare Weg zum Eingang
-     * seiner Route (und nicht die Luftlinie durch Wände).
+     * Richtung, in die ein Schild oder Ordner an `position` zeigen sollte: der
+     * begehbare Weg zum Eingang der Route (und nicht die Luftlinie durch Wände).
      */
-    signDirection(sign: Sign, out: Vector2): boolean {
-        return this.wayfinder.routeDirection(sign.route, sign.position, out);
+    routeDirection(route: number, position: Vector2, out: Vector2): boolean {
+        return this.wayfinder.routeDirection(route, position, out);
     }
 
     /** Begehbare Entfernung von `position` zum Eingang von Weg `route` (`Infinity`, wenn unerreichbar). */
@@ -299,7 +298,14 @@ export class Simulation {
             return;
         }
 
-        updatePanic(agent, sample.neighborPanic, config.panic, deltaSeconds);
+        updatePanic(
+            agent,
+            sample.neighborPanic,
+            config.panic,
+            deltaSeconds,
+            this.marshalCalming(agent),
+            config.marshal.calmingRate,
+        );
 
         this.wayfinder.update(agent, deltaSeconds, (entrance) =>
             perceiveCrowd(agent, entrance, this.agents, this.grid, this.perceptionBuffer),
@@ -344,6 +350,28 @@ export class Simulation {
 
         this.nextVelocityX[agent.id] = agent.velocity.x + changeX * scale;
         this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
+    }
+
+    /**
+     * Beruhigung durch Ordner (0..1): der stärkste Einfluss aller Ordner, die der
+     * Agent sieht. Sie ist beim Ordner am größten und nimmt bis zur Reichweite ab.
+     */
+    private marshalCalming(agent: Agent): number {
+        const {range, calming} = this.level.simulation.marshal;
+        let strongest = 0;
+
+        for (const marshal of this.plan.marshals) {
+            const distance = Math.hypot(
+                agent.position.x - marshal.position.x,
+                agent.position.y - marshal.position.y,
+            );
+
+            if (distance < range && hasLineOfSight(agent.position, marshal.position, this.colliders)) {
+                strongest = Math.max(strongest, calming * (1 - distance / range));
+            }
+        }
+
+        return strongest;
     }
 
     /** Hält Spitzendichte und Zeit im Gedränge für die Wertung fest. */

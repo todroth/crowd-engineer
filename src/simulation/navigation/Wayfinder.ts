@@ -6,8 +6,9 @@ import {rectContains} from "../geometry/Rect.ts";
 import {hasLineOfSight} from "../geometry/clearance.ts";
 import {distanceBetween} from "../geometry/segments.ts";
 import type {Random} from "../random.ts";
+import type {Marshal} from "../Marshal.ts";
 import type {Sign} from "../Sign.ts";
-import type {WayfindingConfig} from "../SimulationConfig.ts";
+import type {MarshalConfig, WayfindingConfig} from "../SimulationConfig.ts";
 import type {FlowField} from "./FlowField.ts";
 
 /** Wie weit (in Feldeinheiten) ein Agent näher am Ziel sein muss als der Eingang, um ihn als passiert zu zählen. */
@@ -53,7 +54,10 @@ export class Wayfinder {
     private readonly remainingLength: readonly number[];
     private readonly goalCenters: readonly Vector2[];
     private readonly signs: readonly Sign[];
+    /** Ordner als Schilder mit voller Stärke: Sie werden wie diese gemerkt, nur mit eigener Reichweite. */
+    private readonly marshalPosts: readonly Sign[];
     private readonly config: WayfindingConfig;
+    private readonly marshalConfig: MarshalConfig;
     private readonly random: Random;
 
     constructor(
@@ -62,14 +66,18 @@ export class Wayfinder {
         routes: readonly WayfinderRoute[],
         goalAreas: readonly Rect[],
         signs: readonly Sign[],
+        marshals: readonly Marshal[],
         config: WayfindingConfig,
+        marshalConfig: MarshalConfig,
         random: Random,
     ) {
         this.colliders = colliders;
         this.mainField = mainField;
         this.routes = routes;
         this.signs = signs;
+        this.marshalPosts = marshals.map(({position, route}) => ({position, route, strength: 1}));
         this.config = config;
+        this.marshalConfig = marshalConfig;
         this.random = random;
 
         this.entranceCenters = routes.map(({entrance}) => ({
@@ -204,34 +212,43 @@ export class Wayfinder {
         out.y = (goal.y - agent.position.y) / distance;
     }
 
-    /** Lässt die Erinnerung an gesehene Schilder verblassen. */
+    /** Lässt die Erinnerung an gesehene Schilder und Ordner verblassen. */
     private ageSignMemory(agent: Agent, deltaSeconds: number): void {
-        for (const memory of agent.signMemory) {
+        for (const memory of [...agent.signMemory, ...agent.marshalMemory]) {
             memory.secondsLeft = Math.max(0, memory.secondsLeft - deltaSeconds);
         }
     }
 
     /**
-     * Stärke des Schildes für `route`, das der Agent kennt: das stärkste, das er
-     * gerade sieht, oder, falls es verdeckt ist, das gemerkte (0, wenn keines).
-     * Gesehene Schilder werden gemerkt, sonst kippt die Wahl, sobald ein Hindernis
-     * die Sicht auf das Schild verdeckt.
+     * Stärke des Hinweises (Schild oder Ordner) für `route`, den der Agent kennt:
+     * der stärkste, den er gerade sieht, oder, falls er verdeckt ist, der gemerkte
+     * (0, wenn keiner). Gesehene Hinweise werden gemerkt, sonst kippt die Wahl,
+     * sobald ein Hindernis die Sicht darauf verdeckt.
+     *
+     * @param memories Gedächtnis des Agenten für diese Art von Hinweis (wird bei Bedarf angelegt)
+     * @param range Bis zu dieser Entfernung wird ein Hinweis erkannt (Pixel)
      */
-    private knownSignStrength(agent: Agent, route: number): number {
-        while (agent.signMemory.length < this.routes.length) {
-            agent.signMemory.push({strength: 0, secondsLeft: 0});
+    private knownStrength(
+        agent: Agent,
+        route: number,
+        posts: readonly Sign[],
+        memories: Agent["signMemory"],
+        range: number,
+    ): number {
+        while (memories.length < this.routes.length) {
+            memories.push({strength: 0, secondsLeft: 0});
         }
 
-        const memory = agent.signMemory[route];
+        const memory = memories[route];
 
-        for (const sign of this.signs) {
+        for (const post of posts) {
             if (
-                sign.route === route &&
-                sign.strength > (memory.secondsLeft > 0 ? memory.strength : 0) &&
-                distanceBetween(agent.position, sign.position) <= this.config.signRange &&
-                hasLineOfSight(agent.position, sign.position, this.colliders)
+                post.route === route &&
+                post.strength > (memory.secondsLeft > 0 ? memory.strength : 0) &&
+                distanceBetween(agent.position, post.position) <= range &&
+                hasLineOfSight(agent.position, post.position, this.colliders)
             ) {
-                memory.strength = sign.strength;
+                memory.strength = post.strength;
                 memory.secondsLeft = this.config.signMemory;
             }
         }
@@ -258,9 +275,14 @@ export class Wayfinder {
             const entranceVisible =
                 distanceBetween(agent.position, entrance) <= sightRange &&
                 hasLineOfSight(agent.position, entrance, this.colliders);
-            const signStrength = this.knownSignStrength(agent, route);
+            const signStrength = this.knownStrength(
+                agent, route, this.signs, agent.signMemory, this.config.signRange,
+            );
+            const marshalStrength = this.knownStrength(
+                agent, route, this.marshalPosts, agent.marshalMemory, this.marshalConfig.range,
+            );
 
-            if (!entranceVisible && signStrength === 0) {
+            if (!entranceVisible && signStrength === 0 && marshalStrength === 0) {
                 continue;
             }
 
@@ -280,8 +302,10 @@ export class Wayfinder {
             const crowdPenalty = entranceVisible
                 ? congestionAversion * caution * (1 - agent.panic) * perceive(entrance)
                 : 0;
-            // Ein Schild macht den Weg attraktiver; Panik lässt es untergehen.
-            const signBonus = signInfluence * signStrength * (1 - agent.panic);
+            // Ein Schild macht den Weg attraktiver; Panik lässt es untergehen. Einen Ordner hört man auch in Panik.
+            const signBonus =
+                signInfluence * signStrength * (1 - agent.panic) +
+                this.marshalConfig.guidance * marshalStrength;
             const nervousness =
                 1 + PANIC_NOISE * agent.panic * (2 * this.random() - 1);
 

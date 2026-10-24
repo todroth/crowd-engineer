@@ -27,7 +27,10 @@ const DEPTH_RESULT = 30;
 /** Anzeigename und Taste je Werkzeug. */
 const TOOLS: readonly {readonly kind: Tool; readonly name: string; readonly key: string}[] = [
     {kind: "sign", name: "Schild", key: "1"},
+    {kind: "marshal", name: "Ordner", key: "2"},
 ];
+
+const ITEM_TITLES: Record<Tool, string> = {sign: "Schild", marshal: "Ordner"};
 
 /**
  * Planung: Die Menge steht, der Spieler stellt Elemente auf. Lauf: Die
@@ -100,7 +103,7 @@ export class CrowdScene extends Phaser.Scene {
         drawObstacles(this, this.level);
         drawExits(this, this.level);
         this.routeMarkers = createRouteMarkers(this, this.level);
-        this.items = new PlanItemsView(this);
+        this.items = new PlanItemsView(this, this.level.simulation.marshal.range);
         this.flowGraphics = this.add.graphics().setDepth(DEPTH_DEBUG);
         this.createHud();
         this.bindKeys();
@@ -362,7 +365,7 @@ export class CrowdScene extends Phaser.Scene {
     }
 
     private panelModel(): PanelModel {
-        const sign = this.editor.selectedSign;
+        const item = this.editor.selectedItem;
 
         return {
             planning: this.phase === "planning",
@@ -375,7 +378,7 @@ export class CrowdScene extends Phaser.Scene {
                 selected: this.editor.tool === kind,
                 exhausted: this.editor.remaining(kind) === 0,
             })),
-            selection: sign ? {title: "Schild", route: sign.route} : null,
+            selection: item ? {title: ITEM_TITLES[item.kind], route: item.route} : null,
             routeCount: this.level.routes.length,
             templates: this.plans().map(({name}) => name),
             warning: null,

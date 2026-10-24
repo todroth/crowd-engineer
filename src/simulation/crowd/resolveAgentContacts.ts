@@ -73,7 +73,7 @@ export function resolveAgentContacts(
     }
 }
 
-/** Trennt zwei Agenten gleichmäßig. Gibt zurück, ob sie sich berührten. */
+/** Trennt zwei Agenten. Gibt zurück, ob sich etwas bewegt hat. */
 function separatePair(a: Agent, b: Agent): boolean {
     let dx = a.position.x - b.position.x;
     let dy = a.position.y - b.position.y;
@@ -92,18 +92,26 @@ function separatePair(a: Agent, b: Agent): boolean {
         dy /= distance;
     }
 
-    const push = (minimumDistance - distance) / 2;
+    // Verletzte liegen am Boden und lassen sich nicht wegschieben: Der
+    // Gesunde weicht ganz, zwischen zwei Gesunden teilt es sich auf.
+    if (a.injured && b.injured) {
+        return false;
+    }
 
-    a.position = {x: a.position.x + dx * push, y: a.position.y + dy * push};
-    b.position = {x: b.position.x - dx * push, y: b.position.y - dy * push};
+    const shareA = a.injured ? 0 : b.injured ? 1 : 0.5;
+    const shareB = 1 - shareA;
+    const overlap = minimumDistance - distance;
+
+    a.position = {x: a.position.x + dx * overlap * shareA, y: a.position.y + dy * overlap * shareA};
+    b.position = {x: b.position.x - dx * overlap * shareB, y: b.position.y - dy * overlap * shareB};
 
     // Annäherungsgeschwindigkeit entlang der Kontaktnormalen abbauen.
     const approach =
         (a.velocity.x - b.velocity.x) * dx + (a.velocity.y - b.velocity.y) * dy;
 
     if (approach < 0) {
-        a.velocity = {x: a.velocity.x - dx * approach / 2, y: a.velocity.y - dy * approach / 2};
-        b.velocity = {x: b.velocity.x + dx * approach / 2, y: b.velocity.y + dy * approach / 2};
+        a.velocity = {x: a.velocity.x - dx * approach * shareA, y: a.velocity.y - dy * approach * shareA};
+        b.velocity = {x: b.velocity.x + dx * approach * shareB, y: b.velocity.y + dy * approach * shareB};
     }
 
     return true;

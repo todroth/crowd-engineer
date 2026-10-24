@@ -34,7 +34,7 @@ export interface RunStats {
     readonly elapsed: number;
     readonly arrived: number;
     readonly total: number;
-    /** Zahl der Agenten, die sich verletzt haben. */
+    /** Zahl der Agenten, die verletzt am Boden liegen. */
     readonly injured: number;
     /** Höchste Personendichte, die ein Agent erlebt hat (Personen pro m²). */
     readonly peakDensity: number;
@@ -47,7 +47,7 @@ export class Simulation {
     injuredCount = 0;
     /** Vergangene Simulationszeit (Sekunden). */
     elapsed = 0;
-    /** Durchlauf beendet (alle angekommen oder Zeitlimit); nur ohne Respawn. */
+    /** Durchlauf beendet (alle angekommen oder verletzt, oder Zeitlimit); nur ohne Respawn. */
     finished = false;
 
     private readonly level: Level;
@@ -177,13 +177,14 @@ export class Simulation {
         // berechnen, dann anwenden: Das Ergebnis hängt nicht von der
         // Reihenfolge der Agenten ab.
         for (const agent of this.agents) {
-            if (!agent.arrived) {
+            if (!agent.arrived && !agent.injured) {
                 this.steer(agent, deltaSeconds);
             }
         }
 
         for (const agent of this.agents) {
-            if (agent.arrived) {
+            // Angekommene sind weg, Verletzte bleiben liegen.
+            if (agent.arrived || agent.injured) {
                 continue;
             }
 
@@ -210,7 +211,7 @@ export class Simulation {
 
         if (
             !this.level.respawn &&
-            (this.arrivedCount === this.agents.length ||
+            (this.arrivedCount + this.injuredCount === this.agents.length ||
                 this.elapsed >= this.level.timeLimit)
         ) {
             this.finished = true;
@@ -243,7 +244,9 @@ export class Simulation {
                 deltaSeconds,
             )
         ) {
+            // Der Agent stürzt und bleibt als Hindernis liegen.
             this.injuredCount++;
+            agent.velocity = {x: 0, y: 0};
         }
 
         this.peakDensity = Math.max(

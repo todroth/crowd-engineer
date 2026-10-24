@@ -61,7 +61,7 @@ export class CrowdScene extends Phaser.Scene {
                     agent.position.x,
                     agent.position.y,
                 );
-                view.setFillStyle(getDensityColor(agent.localDensity));
+                view.setFillStyle(agent.injured ? 0xffffff : getDensityColor(agent.localDensity));
                 this.drawInjuryRing(view, agent.injury, agent.injured);
             }
         }
@@ -99,14 +99,14 @@ export class CrowdScene extends Phaser.Scene {
     private showResult(): void {
         const stats = this.simulation.stats;
         const lines = [
-            stats.arrived < stats.total
+            stats.arrived + stats.injured < stats.total
                 ? "Zeit abgelaufen"
                 : stats.injured === 0
                     ? "Alle evakuiert, niemand verletzt"
-                    : "Alle evakuiert, aber es gab Verletzte",
+                    : "Alle Gehfähigen sind draußen, es gab Verletzte",
             "",
             `Evakuiert:        ${stats.arrived}/${stats.total}`,
-            `Verletzte:        ${stats.injured}`,
+            `Verletzte:        ${stats.injured} (liegen am Boden)`,
             `Dauer:            ${stats.elapsed.toFixed(1)} s`,
             `Spitzendichte:    ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
             "",

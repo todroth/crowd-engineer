@@ -32,6 +32,7 @@ export class AgentSpawner {
             arrived: false,
             injury: 0,
             injured: false,
+            injuredFor: 0,
             panic: 0,
             pressure: 0,
             routeChoice: -1,
@@ -63,6 +64,7 @@ export class AgentSpawner {
         agent.arrived = false;
         agent.injury = 0;
         agent.injured = false;
+        agent.injuredFor = 0;
         agent.panic = 0;
         agent.pressure = 0;
         agent.routeChoice = -1;

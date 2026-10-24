@@ -14,6 +14,12 @@ export interface SimulationConfig {
      * schwerer lassen sie sich bewegen.
      */
     readonly injuredWeight: number;
+    /**
+     * Nach dieser Zeit (Sekunden) werden Verletzte abtransportiert und
+     * verlassen die Simulation. Platzhalter für echte Rettungskräfte;
+     * `Infinity` lässt sie liegen.
+     */
+    readonly rescueTime: number;
     /** Maximale Beschleunigung (Pixel/s²). */
     readonly maxAcceleration: number;
 

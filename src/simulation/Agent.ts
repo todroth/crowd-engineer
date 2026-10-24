@@ -13,13 +13,15 @@ export interface Agent {
     /** Gewichtete Zahl der Nachbarn im Dichteradius. */
     localDensity: number;
 
-    /** Hat das Ziel erreicht und nimmt nicht mehr an der Simulation teil. */
+    /** Hat die Simulation verlassen (angekommen oder als Verletzter abtransportiert). */
     arrived: boolean;
 
     /** Quetschungsschaden 0..1; bei 1 gilt der Agent als verletzt. */
     injury: number;
     /** Hat sich verletzt (bleibt gesetzt, auch wenn sich der Wert erholt). */
     injured: boolean;
+    /** Seit wann der Agent verletzt am Boden liegt (Sekunden). */
+    injuredFor: number;
 
     /** 0 = ruhig, 1 = panisch. */
     panic: number;

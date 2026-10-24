@@ -202,6 +202,7 @@ export class Simulation {
             this.move(agent, deltaSeconds);
         }
 
+        this.rescueInjured(deltaSeconds);
         this.updateObstructions();
 
         this.rebuildGrid();
@@ -228,6 +229,21 @@ export class Simulation {
         }
     }
 
+    /** Verletzte, die lange genug lagen, werden abtransportiert. */
+    private rescueInjured(deltaSeconds: number): void {
+        for (const agent of this.agents) {
+            if (!agent.injured || agent.arrived) {
+                continue;
+            }
+
+            agent.injuredFor += deltaSeconds;
+
+            if (agent.injuredFor >= this.level.simulation.rescueTime) {
+                agent.arrived = true;
+            }
+        }
+    }
+
     /**
      * Führt die Verletzten als Hindernisse im Flow-Field nach, wenn jemand
      * gestürzt ist (und gelegentlich, weil sie langsam weggeschoben werden).
@@ -243,7 +259,9 @@ export class Simulation {
         }
 
         this.wayfinder.setObstructions(
-            this.agents.filter((agent) => agent.injured).map((agent) => agent.position),
+            this.agents
+                .filter((agent) => agent.injured && !agent.arrived)
+                .map((agent) => agent.position),
             INJURED_AVOIDANCE_RADIUS,
         );
         this.obstructedInjuredCount = this.injuredCount;

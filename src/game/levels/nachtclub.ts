@@ -77,5 +77,5 @@ const level: Level = {
 
 export const NACHTCLUB: Scenario = {
     level,
-    plan: {releaseDelays: []},
+    plan: {signs: [], releaseDelays: []},
 };

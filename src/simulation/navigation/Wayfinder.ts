@@ -6,6 +6,7 @@ import {rectContains} from "../geometry/Rect.ts";
 import {hasLineOfSight} from "../geometry/clearance.ts";
 import {distanceBetween} from "../geometry/segments.ts";
 import type {Random} from "../random.ts";
+import type {Sign} from "../Sign.ts";
 import type {WayfindingConfig} from "../SimulationConfig.ts";
 import type {FlowField} from "./FlowField.ts";
 
@@ -38,6 +39,7 @@ export class Wayfinder {
     /** Länge des Wegs vom Eingang bis ins Ziel. */
     private readonly remainingLength: readonly number[];
     private readonly goalCenters: readonly Vector2[];
+    private readonly signs: readonly Sign[];
     private readonly config: WayfindingConfig;
     private readonly random: Random;
 
@@ -47,6 +49,7 @@ export class Wayfinder {
         routeFields: readonly FlowField[],
         entrances: readonly Rect[],
         goalAreas: readonly Rect[],
+        signs: readonly Sign[],
         config: WayfindingConfig,
         random: Random,
     ) {
@@ -54,6 +57,7 @@ export class Wayfinder {
         this.mainField = mainField;
         this.routeFields = routeFields;
         this.entrances = entrances;
+        this.signs = signs;
         this.config = config;
         this.random = random;
 
@@ -151,11 +155,29 @@ export class Wayfinder {
         out.y = (goal.y - agent.position.y) / distance;
     }
 
+    /** Stärkstes Schild für `route`, das der Agent gerade sieht (0, wenn keines). */
+    private visibleSignStrength(agent: Agent, route: number): number {
+        let strongest = 0;
+
+        for (const sign of this.signs) {
+            if (
+                sign.route === route &&
+                sign.strength > strongest &&
+                distanceBetween(agent.position, sign.position) <= this.config.signRange &&
+                hasLineOfSight(agent.position, sign.position, this.colliders)
+            ) {
+                strongest = sign.strength;
+            }
+        }
+
+        return strongest;
+    }
+
     private chooseRoute(
         agent: Agent,
         perceive: (entrance: Vector2) => number,
     ): number {
-        const {sightRange, congestionAversion, switchHysteresis, knowledgeError} =
+        const {sightRange, congestionAversion, switchHysteresis, knowledgeError, signInfluence} =
             this.config;
         // Vorsicht 0,6 .. 1,4: wie stark dieser Mensch Staus scheut.
         const caution = 1 + 0.4 * personal(agent.id, 99);
@@ -165,13 +187,14 @@ export class Wayfinder {
 
         for (let route = 0; route < this.entranceCenters.length; route++) {
             const entrance = this.entranceCenters[route];
-            const straightDistance = distanceBetween(agent.position, entrance);
+            // Ein Weg kommt in Frage, wenn der Agent seinen Eingang sieht
+            // oder ein Schild, das auf ihn zeigt.
+            const entranceVisible =
+                distanceBetween(agent.position, entrance) <= sightRange &&
+                hasLineOfSight(agent.position, entrance, this.colliders);
+            const signStrength = this.visibleSignStrength(agent, route);
 
-            // Nur Wege, deren Eingang er gerade sieht.
-            if (
-                straightDistance > sightRange ||
-                !hasLineOfSight(agent.position, entrance, this.colliders)
-            ) {
+            if (!entranceVisible && signStrength === 0) {
                 continue;
             }
 
@@ -180,17 +203,25 @@ export class Wayfinder {
                 agent.position.y,
             );
 
+            if (!Number.isFinite(distance)) {
+                continue;
+            }
+
             const believedRemaining =
                 this.remainingLength[route] *
                 (1 + knowledgeError * personal(agent.id, route));
-            const crowdPenalty =
-                congestionAversion * caution * (1 - agent.panic) *
-                perceive(entrance);
+            // Gedränge vor dem Eingang sieht man nur, wenn man ihn sieht.
+            const crowdPenalty = entranceVisible
+                ? congestionAversion * caution * (1 - agent.panic) * perceive(entrance)
+                : 0;
+            // Ein Schild macht den Weg attraktiver; Panik lässt es untergehen.
+            const signBonus = signInfluence * signStrength * (1 - agent.panic);
             const nervousness =
                 1 + PANIC_NOISE * agent.panic * (2 * this.random() - 1);
 
             let cost =
-                (distance + believedRemaining) * (1 + crowdPenalty) * nervousness;
+                (distance + believedRemaining) * (1 + crowdPenalty) * nervousness *
+                (1 - signBonus);
 
             if (route === agent.routeChoice) {
                 cost *= 1 - switchHysteresis * (1 - agent.panic);

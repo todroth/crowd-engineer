@@ -152,6 +152,7 @@ export class Simulation {
             ),
             level.routes,
             level.goalAreas,
+            plan.signs,
             config.wayfinding,
             random,
         );

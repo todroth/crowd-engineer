@@ -8,14 +8,17 @@ import {SCENARIOS} from "../src/game/scenarios.ts";
 
 const only = process.argv[2] === undefined ? undefined : Number(process.argv[2]) - 1;
 
-SCENARIOS.forEach(({level, plan}, index) => {
+SCENARIOS.forEach(({level, plan, examples}, index) => {
     if (only !== undefined && only !== index) {
         return;
     }
 
     console.log(`\n${index + 1} ${level.name} (${level.agentCount} Agenten)`);
 
-    const plans: [string, Plan][] = [["Standardplan", plan]];
+    const plans: [string, Plan][] = [
+        ["Standardplan", plan],
+        ...(examples ?? []).map(({name, plan: example}): [string, Plan] => [name, example]),
+    ];
     const blocks = level.sectors.length;
 
     if (blocks > 0) {

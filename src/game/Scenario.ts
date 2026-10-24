@@ -5,4 +5,6 @@ import type {Plan} from "../simulation/Plan.ts";
 export interface Scenario {
     readonly level: Level;
     readonly plan: Plan;
+    /** Beispielpläne zum Ausprobieren und für `npm run scenarios`. */
+    readonly examples?: readonly {readonly name: string; readonly plan: Plan}[];
 }

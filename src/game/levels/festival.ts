@@ -78,5 +78,5 @@ const level: Level = {
 
 export const FESTIVAL: Scenario = {
     level,
-    plan: {releaseDelays: [0, 0, 0]},
+    plan: {signs: [], releaseDelays: [0, 0, 0]},
 };

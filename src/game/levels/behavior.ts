@@ -31,6 +31,8 @@ const BASE = {
 
     wayfinding: {
         sightRange: 350,
+        signRange: 300,
+        signInfluence: 0.5,
         decisionInterval: 0.8,
         congestionAversion: 0.25,
         switchHysteresis: 0.15,

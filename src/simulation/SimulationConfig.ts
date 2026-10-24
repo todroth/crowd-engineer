@@ -49,6 +49,10 @@ export interface SimulationConfig {
 export interface WayfindingConfig {
     /** Bis zu dieser Entfernung erkennt ein Agent den Eingang eines Weges (Pixel). */
     readonly sightRange: number;
+    /** Bis zu dieser Entfernung erkennt ein Agent ein Schild (Pixel). */
+    readonly signRange: number;
+    /** Größte Kostensenkung eines Weges durch ein Schild (Anteil, bei Stärke 1 und ohne Panik). */
+    readonly signInfluence: number;
     /** Mittlere Zeit zwischen zwei Überlegungen eines Agenten (Sekunden). */
     readonly decisionInterval: number;
     /** Wie stark gesehenes Gedränge einen Weg unattraktiv macht (0 = ignoriert). */

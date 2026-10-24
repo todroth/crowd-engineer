@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
 import type {Level} from "../simulation/Level.ts";
+import type {Plan} from "../simulation/Plan.ts";
 import {SCENARIOS} from "./scenarios.ts";
 import {calculateCost, referenceCost} from "../simulation/scoring.ts";
 import {getDensityColor} from "./getDensityColor.ts";
@@ -17,6 +18,8 @@ export class CrowdScene extends Phaser.Scene {
 
     private level!: Level;
     private scenarioIndex = 0;
+    /** Index in der Liste der Pläne des Szenarios (0 = Standardplan, danach die Beispiele). */
+    private planIndex = 0;
     /** Abspielgeschwindigkeit (1, 2 oder 4), bleibt über Neustarts erhalten. */
     private speed = 1;
 
@@ -32,19 +35,22 @@ export class CrowdScene extends Phaser.Scene {
         super("CrowdScene");
     }
 
-    create(data?: {scenario?: number}): void {
+    create(data?: {scenario?: number; plan?: number}): void {
 
         this.scenarioIndex = data?.scenario ?? this.scenarioIndex;
+        this.planIndex = data?.plan ?? 0;
 
         const scenario = SCENARIOS[this.scenarioIndex];
+        const plan = this.plans()[this.planIndex];
 
         this.level = scenario.level;
-        this.simulation = new Simulation(scenario.level, scenario.plan);
+        this.simulation = new Simulation(scenario.level, plan.plan);
         this.personViews.clear();
         this.resultText = undefined;
 
         this.drawGrid();
         this.drawObstacles();
+        this.drawSigns(plan.plan);
         this.createPeople();
 
         this.flowGraphics = this.add.graphics().setDepth(10);
@@ -71,7 +77,17 @@ export class CrowdScene extends Phaser.Scene {
 
         this.input.keyboard
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
-            .on("down", () => this.scene.restart({scenario: this.scenarioIndex}));
+            .on("down", () => this.scene.restart({scenario: this.scenarioIndex, plan: this.planIndex}));
+
+        // P wechselt zum nächsten Plan des Szenarios (Standardplan, dann die Beispiele).
+        this.input.keyboard
+            ?.addKey(Phaser.Input.Keyboard.KeyCodes.P)
+            .on("down", () =>
+                this.scene.restart({
+                    scenario: this.scenarioIndex,
+                    plan: (this.planIndex + 1) % this.plans().length,
+                }),
+            );
 
         // S schaltet die Abspielgeschwindigkeit um: 1x, 2x, 4x.
         this.input.keyboard
@@ -84,7 +100,7 @@ export class CrowdScene extends Phaser.Scene {
         SCENARIOS.forEach((_, index) => {
             this.input.keyboard
                 ?.addKey(Phaser.Input.Keyboard.KeyCodes.ONE + index)
-                .on("down", () => this.scene.restart({scenario: index}));
+                .on("down", () => this.scene.restart({scenario: index, plan: 0}));
         });
 
     }
@@ -138,7 +154,49 @@ export class CrowdScene extends Phaser.Scene {
                 `${index === this.scenarioIndex ? "▶" : " "}${index + 1} ${scenario.level.name}`)
             .join("   ");
 
-        return `${keys}\n${this.level.description}`;
+        return (
+            `${keys}\n${this.level.description}\n` +
+            `Plan: ${this.plans()[this.planIndex].name}   [P: nächster Plan]`
+        );
+    }
+
+    /** Die wählbaren Pläne des aktuellen Szenarios: Standardplan und Beispiele. */
+    private plans(): readonly {readonly name: string; readonly plan: Plan}[] {
+        const scenario = SCENARIOS[this.scenarioIndex];
+
+        return [
+            {name: "Standardplan", plan: scenario.plan},
+            ...(scenario.examples ?? []),
+        ];
+    }
+
+    /** Zeichnet jedes Schild als gelben Punkt mit einem Pfeil zum Eingang des Weges. */
+    private drawSigns(plan: Plan): void {
+        const graphics = this.add.graphics().setDepth(5);
+
+        for (const sign of plan.signs) {
+            const entrance = this.level.routes[sign.route];
+            const dx = entrance.x + entrance.width / 2 - sign.position.x;
+            const dy = entrance.y + entrance.height / 2 - sign.position.y;
+            const length = Math.hypot(dx, dy) || 1;
+            const ux = dx / length;
+            const uy = dy / length;
+            const tipX = sign.position.x + ux * 22;
+            const tipY = sign.position.y + uy * 22;
+
+            graphics.lineStyle(3, 0xffd60a, 1);
+            graphics.lineBetween(sign.position.x, sign.position.y, tipX, tipY);
+            graphics.fillStyle(0xffd60a, 1);
+            graphics.fillTriangle(
+                tipX + ux * 7,
+                tipY + uy * 7,
+                tipX - uy * 5,
+                tipY + ux * 5,
+                tipX + uy * 5,
+                tipY - ux * 5,
+            );
+            graphics.fillCircle(sign.position.x, sign.position.y, 5);
+        }
     }
 
     private updateStatus(): void {

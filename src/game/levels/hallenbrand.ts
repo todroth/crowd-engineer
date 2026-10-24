@@ -100,7 +100,37 @@ const level: Level = {
     ],
 };
 
+/** Wege: 0 = Mitte (Tunnel), 1 = oben, 2 = unten. */
 export const HALLENBRAND: Scenario = {
     level,
-    plan: {releaseDelays: []},
+    plan: {signs: [], releaseDelays: []},
+    examples: [
+        {
+            name: "Schilder zu oberem und unterem Weg (am Startplatz)",
+            plan: {
+                releaseDelays: [],
+                signs: [
+                    {position: {x: 240, y: 110}, route: 1, strength: 0.9},
+                    {position: {x: 240, y: 590}, route: 2, strength: 0.9},
+                ],
+            },
+        },
+        {
+            name: "Schilder zu oberem und unterem Weg (hinter dem Trichter)",
+            plan: {
+                releaseDelays: [],
+                signs: [
+                    {position: {x: 480, y: 150}, route: 1, strength: 0.9},
+                    {position: {x: 480, y: 550}, route: 2, strength: 0.9},
+                ],
+            },
+        },
+        {
+            name: "Schild nur zum Mitteltunnel",
+            plan: {
+                releaseDelays: [],
+                signs: [{position: {x: 460, y: 350}, route: 0, strength: 0.9}],
+            },
+        },
+    ],
 };

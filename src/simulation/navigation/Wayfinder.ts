@@ -96,6 +96,15 @@ export class Wayfinder {
         agent.routeChoice = this.chooseRoute(agent, perceive);
     }
 
+    /** Meldet bewegliche Hindernisse an alle Felder, damit Wege daran vorbeiführen. */
+    setObstructions(centers: readonly Vector2[], radius: number): void {
+        this.mainField.setObstructions(centers, radius);
+
+        for (const field of this.routeFields) {
+            field.setObstructions(centers, radius);
+        }
+    }
+
     /** Schreibt die Laufrichtung (Einheitsvektor) des Agenten nach `out`. */
     direction(agent: Agent, out: Vector2): void {
         const field = agent.routeChoice >= 0 && !agent.committed

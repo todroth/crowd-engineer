@@ -22,6 +22,11 @@ const FIXED_STEP = 1 / 60;
 /** Obergrenze pro `update`, damit lange Frames keine Todesspirale auslösen. */
 const MAX_STEPS_PER_UPDATE = 5;
 
+/** Radius um Verletzte, in dem Wege gemieden werden (Pixel). */
+const INJURED_AVOIDANCE_RADIUS = 12;
+/** So oft werden die Hindernisse im Flow-Field nachgeführt, solange es Verletzte gibt (Sekunden). */
+const OBSTRUCTION_REFRESH_INTERVAL = 3;
+
 /** Steering darf die Wunschgeschwindigkeit höchstens so weit überschreiten. */
 const MAX_SPEED_FACTOR = 1.5;
 /** Bezugstempo (Pixel/s), mit dem blockierter Schub in Druck umgerechnet wird. */
@@ -60,6 +65,8 @@ export class Simulation {
     private readonly wayfinder: Wayfinder;
 
     private accumulator = 0;
+    private obstructedInjuredCount = 0;
+    private lastObstructionUpdate = 0;
     private peakDensity = 0;
     /**
      * Umrechnung der Kernel-Dichte (`sampleNeighbors`) in Personen pro m²: Der
@@ -195,6 +202,8 @@ export class Simulation {
             this.move(agent, deltaSeconds);
         }
 
+        this.updateObstructions();
+
         this.rebuildGrid();
         resolveAgentContacts(
             this.agents,
@@ -217,6 +226,28 @@ export class Simulation {
         ) {
             this.finished = true;
         }
+    }
+
+    /**
+     * Führt die Verletzten als Hindernisse im Flow-Field nach, wenn jemand
+     * gestürzt ist (und gelegentlich, weil sie langsam weggeschoben werden).
+     */
+    private updateObstructions(): void {
+        const changed = this.injuredCount !== this.obstructedInjuredCount;
+        const stale =
+            this.injuredCount > 0 &&
+            this.elapsed - this.lastObstructionUpdate >= OBSTRUCTION_REFRESH_INTERVAL;
+
+        if (!changed && !stale) {
+            return;
+        }
+
+        this.wayfinder.setObstructions(
+            this.agents.filter((agent) => agent.injured).map((agent) => agent.position),
+            INJURED_AVOIDANCE_RADIUS,
+        );
+        this.obstructedInjuredCount = this.injuredCount;
+        this.lastObstructionUpdate = this.elapsed;
     }
 
     /** Berechnet die Geschwindigkeit des nächsten Schritts (in die Puffer). */

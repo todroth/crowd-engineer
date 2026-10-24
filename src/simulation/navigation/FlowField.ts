@@ -7,6 +7,8 @@ import {fastMarching} from "./fastMarching.ts";
 /** Wie stark der Randbereich vor Hindernissen die Ausbreitung bremst (0 = gar nicht). */
 const WALL_PENALTY = 2;
 const MIN_GRADIENT = 1e-6;
+/** Faktor, um den die Ausbreitung in Zellen mit beweglichen Hindernissen verlangsamt wird. */
+const OBSTRUCTION_SLOWDOWN = 0.1;
 
 export interface FlowFieldOptions {
     /** Seitenlänge einer Rasterzelle (Pixel). */
@@ -31,8 +33,11 @@ export class FlowField {
     private readonly columns: number;
     private readonly rows: number;
 
+    /** Ausbreitungsgeschwindigkeit nur aufgrund der Hindernisse. */
+    private readonly baseSpeed: Float32Array;
+    private readonly goalCells: number[] = [];
     /** Ankunftszeit (≈ Weglänge, in Wandnähe länger) von jeder Zelle bis ins Ziel. */
-    private readonly arrival: Float32Array;
+    private arrival: Float32Array;
 
     private readonly directionX: Float32Array;
     private readonly directionY: Float32Array;
@@ -57,26 +62,60 @@ export class FlowField {
 
         const cellCount = this.columns * this.rows;
 
-        const speed = this.createSpeedMap(colliders, options);
-        const goalCells: number[] = [];
+        this.baseSpeed = this.createSpeedMap(colliders, options);
 
         for (let cell = 0; cell < cellCount; cell++) {
             const center = this.cellCenter(cell);
 
             if (
-                speed[cell] > 0 &&
+                this.baseSpeed[cell] > 0 &&
                 center.x >= goalArea.x && center.x <= goalArea.x + goalArea.width &&
                 center.y >= goalArea.y && center.y <= goalArea.y + goalArea.height
             ) {
-                goalCells.push(cell);
+                this.goalCells.push(cell);
             }
         }
 
-        this.arrival = fastMarching(speed, this.columns, this.rows, cellSize, goalCells);
         this.directionX = new Float32Array(cellCount);
         this.directionY = new Float32Array(cellCount);
         this.hasDirection = new Uint8Array(cellCount);
+        this.arrival = new Float32Array(cellCount);
 
+        this.rebuild(this.baseSpeed);
+    }
+
+    /**
+     * Markiert bewegliche Hindernisse (etwa am Boden liegende Menschen) um die
+     * Punkte `centers` mit dem Radius `radius`: Wege führen dann bevorzugt
+     * daran vorbei. Sie sind nicht gesperrt, sondern sehr teuer, damit es auch
+     * dann einen Weg gibt, wenn alles zugestellt ist. Ersetzt frühere Markierungen.
+     */
+    setObstructions(centers: readonly Vector2[], radius: number): void {
+        const speed = this.baseSpeed.slice();
+        const reach = Math.ceil(radius / this.cellSize);
+
+        for (const center of centers) {
+            const column = Math.floor((center.x - this.origin.x) / this.cellSize);
+            const row = Math.floor((center.y - this.origin.y) / this.cellSize);
+
+            for (let r = Math.max(0, row - reach); r <= Math.min(this.rows - 1, row + reach); r++) {
+                for (let c = Math.max(0, column - reach); c <= Math.min(this.columns - 1, column + reach); c++) {
+                    const cell = r * this.columns + c;
+                    const cellCenter = this.cellCenter(cell);
+
+                    if (Math.hypot(cellCenter.x - center.x, cellCenter.y - center.y) <= radius) {
+                        speed[cell] *= OBSTRUCTION_SLOWDOWN;
+                    }
+                }
+            }
+        }
+
+        this.rebuild(speed);
+    }
+
+    private rebuild(speed: Float32Array): void {
+        this.arrival = fastMarching(speed, this.columns, this.rows, this.cellSize, this.goalCells);
+        this.hasDirection.fill(0);
         this.computeDirections(this.arrival);
     }
 

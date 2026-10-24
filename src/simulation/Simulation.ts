@@ -27,14 +27,12 @@ const MAX_SPEED_FACTOR = 1.5;
 const NORMAL_SPEED = 50;
 const CONTACT_ITERATIONS = 3;
 
-/** Kennzahlen eines Durchlaufs. Zeiten in Sekunden, `null` = noch nicht erreicht. */
+/** Kennzahlen eines Durchlaufs. */
 export interface RunStats {
+    /** Vergangene Zeit in Sekunden; nach dem Ende die Dauer des Durchlaufs. */
     readonly elapsed: number;
     readonly arrived: number;
     readonly total: number;
-    readonly timeTo50Percent: number | null;
-    readonly timeTo90Percent: number | null;
-    readonly timeToAll: number | null;
     /** Höchste Personendichte, die ein Agent erlebt hat (Personen pro m²). */
     readonly peakDensity: number;
 }
@@ -64,8 +62,6 @@ export class Simulation {
      * Kegelkern 1 - d/R hat das Integral πR²/3, daher Anzahl ≈ Dichte · πR²/3.
      */
     private readonly personsPerSquareMeter: number;
-    private readonly milestones: { 50: number | null; 90: number | null; all: number | null } =
-        {50: null, 90: null, all: null};
 
     // Wiederverwendete Puffer, damit pro Schritt nichts allokiert wird.
     private readonly neighborBuffer: number[] = [];
@@ -144,9 +140,6 @@ export class Simulation {
             elapsed: this.elapsed,
             arrived: this.arrivedCount,
             total: this.agents.length,
-            timeTo50Percent: this.milestones[50],
-            timeTo90Percent: this.milestones[90],
-            timeToAll: this.milestones.all,
             peakDensity: this.peakDensity,
         };
     }
@@ -367,7 +360,6 @@ export class Simulation {
 
     private arrive(agent: Agent): void {
         this.arrivedCount++;
-        this.recordMilestones();
 
         if (this.level.respawn) {
             this.spawner.respawn(agent, this.isSpawnFree);
@@ -378,14 +370,6 @@ export class Simulation {
         agent.arrived = true;
         agent.velocity = {x: 0, y: 0};
         agent.localDensity = 0;
-    }
-
-    private recordMilestones(): void {
-        const share = this.arrivedCount / this.agents.length;
-
-        if (share >= 0.5 && this.milestones[50] === null) this.milestones[50] = this.elapsed;
-        if (share >= 0.9 && this.milestones[90] === null) this.milestones[90] = this.elapsed;
-        if (share >= 1 && this.milestones.all === null) this.milestones.all = this.elapsed;
     }
 
     private rebuildGrid(): void {

@@ -82,16 +82,11 @@ export class CrowdScene extends Phaser.Scene {
 
     private showResult(): void {
         const stats = this.simulation.stats;
-        const seconds = (time: number | null): string =>
-            time === null ? "nicht erreicht" : `${time.toFixed(1)} s`;
-
         const lines = [
             stats.arrived === stats.total ? "Alle evakuiert" : "Zeit abgelaufen",
             "",
             `Evakuiert:        ${stats.arrived}/${stats.total}`,
-            `50 % draußen:     ${seconds(stats.timeTo50Percent)}`,
-            `90 % draußen:     ${seconds(stats.timeTo90Percent)}`,
-            `Alle draußen:     ${seconds(stats.timeToAll)}`,
+            `Dauer:            ${stats.elapsed.toFixed(1)} s`,
             `Spitzendichte:    ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
             "",
             "Leertaste: Neustart",

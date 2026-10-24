@@ -33,3 +33,9 @@ export function routeLetter(route: number): string {
 export function cssColor(color: number): string {
     return `#${color.toString(16).padStart(6, "0")}`;
 }
+
+/**
+ * Auflösung, in der Texte gerendert werden. Die Leinwand wird auf die Fenstergröße
+ * skaliert; mit der Standardauflösung 1 wirkt Schrift dabei unscharf.
+ */
+export const TEXT_RESOLUTION = Math.max(2, Math.ceil(window.devicePixelRatio || 1));

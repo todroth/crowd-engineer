@@ -92,7 +92,7 @@ const level: Level = {
 /** Wege: 0 = oberes Tor, 1 = mittleres Tor (bekannt), 2 = unteres Tor. */
 export const STADION: Scenario = {
     level,
-    signBudget: 4,
+    inventory: {signs: 4},
     // Vier Schilder an den Treppen weisen auf die beiden unbekannten äußeren Tore.
     plan: {
         releaseDelays: [0, 0, 0],

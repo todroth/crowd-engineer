@@ -1,11 +1,14 @@
 import type Phaser from "phaser";
+import type {Plan} from "../../simulation/Plan.ts";
 import type {Sign} from "../../simulation/Sign.ts";
 import type {Vector2} from "../../simulation/Vector2.ts";
+import type {Selected} from "../PlanEditor.ts";
 import {routeColor} from "./theme.ts";
 
 /** Länge des Pfeils vom Schild aus (Pixel). */
 const ARROW_LENGTH = 22;
-const DEPTH_SIGNS = 6;
+const SELECTION_RADIUS = 13;
+const DEPTH_ITEMS = 6;
 
 /** Liefert die Richtung, in die ein Schild zeigt (die Simulation erfüllt das). */
 export interface SignDirections {
@@ -13,28 +16,34 @@ export interface SignDirections {
 }
 
 /**
- * Schilder als Punkt mit Pfeil in Richtung des begehbaren Weges zum Eingang
- * ihrer Route, in der Farbe der Route. Dazu eine Vorschau unter dem Zeiger.
+ * Die Elemente des Plans in der Welt: Schilder als Punkt mit Pfeil in Richtung
+ * des begehbaren Weges zum Eingang ihrer Route, in der Farbe der Route. Die
+ * Auswahl hat einen Ring; unter dem Zeiger erscheint eine Vorschau.
  */
-export class SignsView {
+export class PlanItemsView {
     private readonly graphics: Phaser.GameObjects.Graphics;
     private readonly ghost: Phaser.GameObjects.Graphics;
     private readonly direction: Vector2 = {x: 1, y: 0};
 
     constructor(scene: Phaser.Scene) {
-        this.graphics = scene.add.graphics().setDepth(DEPTH_SIGNS);
-        this.ghost = scene.add.graphics().setDepth(DEPTH_SIGNS).setAlpha(0.55);
+        this.graphics = scene.add.graphics().setDepth(DEPTH_ITEMS);
+        this.ghost = scene.add.graphics().setDepth(DEPTH_ITEMS).setAlpha(0.55);
     }
 
-    draw(signs: readonly Sign[], directions: SignDirections): void {
+    draw(plan: Plan, selected: Selected | null, directions: SignDirections): void {
         this.graphics.clear();
 
-        for (const sign of signs) {
+        plan.signs.forEach((sign, index) => {
             this.drawSign(this.graphics, sign, directions);
-        }
+
+            if (selected?.kind === "sign" && selected.index === index) {
+                this.graphics.lineStyle(2, 0xfde68a, 1);
+                this.graphics.strokeCircle(sign.position.x, sign.position.y, SELECTION_RADIUS);
+            }
+        });
     }
 
-    /** Vorschau eines Schildes, das man hier aufstellen würde; `null` blendet sie aus. */
+    /** Vorschau eines Elements, das man hier aufstellen würde; `null` blendet sie aus. */
     showGhost(sign: Sign | null, directions: SignDirections): void {
         this.ghost.clear();
 

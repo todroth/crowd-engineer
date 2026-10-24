@@ -13,3 +13,8 @@ export interface Plan {
      */
     readonly releaseDelays: readonly number[];
 }
+
+/** Ein Plan aus den angegebenen Teilen; Fehlendes bleibt leer. */
+export function createPlan(parts: Partial<Plan> = {}): Plan {
+    return {signs: [], releaseDelays: [], ...parts};
+}

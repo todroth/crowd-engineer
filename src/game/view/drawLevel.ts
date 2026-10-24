@@ -3,7 +3,7 @@ import type {Level} from "../../simulation/Level.ts";
 import type {Obstacle} from "../../simulation/Obstacle.ts";
 import type {Rect} from "../../simulation/geometry/Rect.ts";
 import type {FlowField} from "../../simulation/navigation/FlowField.ts";
-import {cssColor, routeColor, routeLetter, THEME} from "./theme.ts";
+import {cssColor, routeColor, routeLetter, THEME, TEXT_RESOLUTION} from "./theme.ts";
 
 const GRID_SPACING = 40;
 /** Versatz des Schlagschattens unter Hindernissen (Pixel). */
@@ -112,7 +112,7 @@ export function drawExits(scene: Phaser.Scene, level: Level): void {
 
         const label = scene.add
             .text(strip.x + strip.width / 2, strip.y + strip.height / 2, hidden.has(index) ? "NOTAUSGANG" : "AUSGANG", {
-                fontFamily: THEME.font,
+                fontFamily: THEME.font, resolution: TEXT_RESOLUTION,
                 fontSize: "10px",
                 color: cssColor(color),
                 fontStyle: "bold",
@@ -163,7 +163,7 @@ export function createRouteMarkers(scene: Phaser.Scene, level: Level): Phaser.Ga
         container.add(
             scene.add
                 .text(entrance.x + entrance.width / 2, entrance.y + entrance.height / 2, routeLetter(route), {
-                    fontFamily: THEME.font,
+                    fontFamily: THEME.font, resolution: TEXT_RESOLUTION,
                     fontSize: "18px",
                     fontStyle: "bold",
                     color: cssColor(color),

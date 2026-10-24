@@ -1,8 +1,9 @@
 // Spielt das Spiel im Browser durch, in Echtzeit, und macht Screenshots. Braucht den
 // laufenden Dev-Server (npx vite --port 5199) und Google Chrome:
 //   node scripts/browser.ts "http://localhost:5199/?scenario=2" shot:plan click:250:560 enter s wait:30000 shot:end
-// Schritte: shot:NAME (→ /tmp/crowd-NAME.png), wait:MS, click:X:Y, rclick:X:Y, move:X:Y
-// (Bildschirmpixel; die Welt beginnt 34 px unter dem oberen Rand), enter, space, s, p, c, f, 1–9.
+// Schritte: shot:NAME (→ /tmp/crowd-NAME.png), wait:MS, click:X:Y, rclick:X:Y, move:X:Y,
+// drag:X1:Y1:X2:Y2 (Bildschirmpixel, Fenster 1230×844; die Welt beginnt 34 px unter dem oberen
+// Rand, die Seitenleiste bei x = 1000), enter, space, s, f, delete, backspace, 1–9.
 //
 // Steuert Chrome über das DevTools-Protokoll. Der Screenshot-Modus von Chrome
 // (--screenshot) taugt hier nicht: Mit virtueller Zeit rechnet Phaser nur die ersten Bilder.
@@ -20,6 +21,8 @@ const KEYS: Record<string, [key: string, code: string, keyCode: number]> = {
     p: ["p", "KeyP", 80],
     c: ["c", "KeyC", 67],
     f: ["f", "KeyF", 70],
+    delete: ["Delete", "Delete", 46],
+    backspace: ["Backspace", "Backspace", 8],
 };
 
 for (let digit = 1; digit <= 9; digit++) {
@@ -35,7 +38,7 @@ const chrome = spawn(CHROME, [
     "--use-gl=angle",
     "--use-angle=swiftshader",
     "--enable-unsafe-swiftshader",
-    "--window-size=1000,844",
+    "--window-size=1230,844",
     "about:blank",
 ], {stdio: "ignore"});
 
@@ -67,12 +70,14 @@ try {
         }
     };
 
+    // Feste Darstellungsgröße, damit Klick-Koordinaten Bildschirmpixel des Spiels sind.
+    await send("Emulation.setDeviceMetricsOverride", {width: 1230, height: 844, deviceScaleFactor: 1, mobile: false});
     await send("Page.enable");
     await send("Page.navigate", {url});
     await sleep(3000);
 
     for (const step of steps) {
-        const [command, a, b] = step.split(":");
+        const [command, a, b, c, d] = step.split(":");
 
         if (command === "shot") {
             const {data} = await send("Page.captureScreenshot", {format: "png"});
@@ -84,6 +89,18 @@ try {
             await sleep(Number(a));
         } else if (command === "click" || command === "rclick") {
             await mouse(Number(a), Number(b), command === "click" ? "left" : "right");
+        } else if (command === "drag") {
+            const [x1, y1, x2, y2] = [a, b, c, d].map(Number);
+
+            await send("Input.dispatchMouseEvent", {type: "mouseMoved", x: x1, y: y1});
+            await send("Input.dispatchMouseEvent", {type: "mousePressed", x: x1, y: y1, button: "left", buttons: 1, clickCount: 1});
+            for (let i = 1; i <= 5; i++) {
+                await send("Input.dispatchMouseEvent", {
+                    type: "mouseMoved", x: x1 + ((x2 - x1) * i) / 5, y: y1 + ((y2 - y1) * i) / 5, button: "left", buttons: 1,
+                });
+                await sleep(50);
+            }
+            await send("Input.dispatchMouseEvent", {type: "mouseReleased", x: x2, y: y2, button: "left", clickCount: 1});
         } else if (command === "move") {
             await send("Input.dispatchMouseEvent", {type: "mouseMoved", x: Number(a), y: Number(b)});
         } else if (KEYS[command]) {

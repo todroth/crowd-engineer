@@ -92,7 +92,7 @@ export class CrowdScene extends Phaser.Scene {
             `50 % draußen:     ${seconds(stats.timeTo50Percent)}`,
             `90 % draußen:     ${seconds(stats.timeTo90Percent)}`,
             `Alle draußen:     ${seconds(stats.timeToAll)}`,
-            `Höchste Dichte:   ${stats.peakDensity.toFixed(1)}`,
+            `Spitzendichte:    ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
             "",
             "Leertaste: Neustart",
         ];
@@ -203,4 +203,15 @@ export class CrowdScene extends Phaser.Scene {
         });
     }
 
+}
+
+/**
+ * Einordnung der Personendichte (angelehnt an die Fruin-Stufen für
+ * Fußgängerströme; ab etwa 5 Personen/m² besteht Quetschgefahr).
+ */
+function describeDensity(personsPerSquareMeter: number): string {
+    if (personsPerSquareMeter < 2) return "locker";
+    if (personsPerSquareMeter < 4) return "dicht";
+    if (personsPerSquareMeter < 5.5) return "Gedränge";
+    return "kritisch";
 }

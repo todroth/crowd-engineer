@@ -5,6 +5,11 @@ import type {SimulationConfig} from "./SimulationConfig.ts";
 export interface Level {
     readonly worldWidth: number;
     readonly worldHeight: number;
+    /**
+     * Maßstab: Pixel pro Meter. Ein Mensch ist etwa 0,5 m breit (Agentendurchmesser
+     * 8 px), das ergibt 16 px/m. Dient dazu, Werte in reale Einheiten umzurechnen.
+     */
+    readonly pixelsPerMeter: number;
 
     readonly agentCount: number;
     /** Hier werden die Agenten zu Beginn platziert. */

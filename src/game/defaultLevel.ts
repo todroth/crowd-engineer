@@ -3,6 +3,7 @@ import type {Level} from "../simulation/Level.ts";
 export const DEFAULT_LEVEL: Level = {
     worldWidth: 1000,
     worldHeight: 700,
+    pixelsPerMeter: 16,
     agentCount: 1200,
     seed: 1,
 

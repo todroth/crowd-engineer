@@ -35,7 +35,7 @@ export interface RunStats {
     readonly timeTo50Percent: number | null;
     readonly timeTo90Percent: number | null;
     readonly timeToAll: number | null;
-    /** Höchste lokale Dichte, die ein Agent erlebt hat. */
+    /** Höchste Personendichte, die ein Agent erlebt hat (Personen pro m²). */
     readonly peakDensity: number;
 }
 
@@ -59,6 +59,11 @@ export class Simulation {
 
     private accumulator = 0;
     private peakDensity = 0;
+    /**
+     * Umrechnung der Kernel-Dichte (`sampleNeighbors`) in Personen pro m²: Der
+     * Kegelkern 1 - d/R hat das Integral πR²/3, daher Anzahl ≈ Dichte · πR²/3.
+     */
+    private readonly personsPerSquareMeter: number;
     private readonly milestones: { 50: number | null; 90: number | null; all: number | null } =
         {50: null, 90: null, all: null};
 
@@ -74,6 +79,9 @@ export class Simulation {
         const {simulation: config} = level;
 
         this.level = level;
+        this.personsPerSquareMeter =
+            (3 * level.pixelsPerMeter ** 2) /
+            (Math.PI * config.densityRadius ** 2);
         this.colliders = createColliders(level.obstacles);
         this.neighborRadius = Math.max(
             config.separationRadius,
@@ -229,7 +237,10 @@ export class Simulation {
             this.sample,
         );
         agent.localDensity = this.measureDensity(agent);
-        this.peakDensity = Math.max(this.peakDensity, agent.localDensity);
+        this.peakDensity = Math.max(
+            this.peakDensity,
+            this.sample.density * this.personsPerSquareMeter,
+        );
 
         updatePanic(agent, this.sample.neighborPanic, config.panic, deltaSeconds);
 

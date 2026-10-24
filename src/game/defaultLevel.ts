@@ -67,13 +67,19 @@ export const DEFAULT_LEVEL: Level = {
     },
 
     obstacles: [
-        // Spielfeldbegrenzung oben und unten
+        // Spielfeldbegrenzung oben, unten und links: Nach links gibt es keinen Ausweg.
         {type: "wall", start: {x: 0, y: 0}, end: {x: 1000, y: 0}, thickness: 12},
         {type: "wall", start: {x: 0, y: 700}, end: {x: 1000, y: 700}, thickness: 12},
+        {type: "wall", start: {x: 0, y: 0}, end: {x: 0, y: 700}, thickness: 12},
 
-        // 1) EINGANGSTRICHTER: Der Startplatz verengt sich auf 200 Pixel.
-        {type: "wall", start: {x: 260, y: 0}, end: {x: 430, y: 250}, thickness: 12},
-        {type: "wall", start: {x: 260, y: 700}, end: {x: 430, y: 450}, thickness: 12},
+        // Säulen im Startbereich: Sie teilen die Menge vor dem Trichter.
+        {type: "circle", center: {x: 305, y: 190}, radius: 18},
+        {type: "circle", center: {x: 305, y: 510}, radius: 18},
+        {type: "circle", center: {x: 360, y: 350}, radius: 20},
+
+        // 1) EINGANGSTRICHTER: Der Startplatz verengt sich auf 150 Pixel.
+        {type: "wall", start: {x: 260, y: 0}, end: {x: 430, y: 275}, thickness: 12},
+        {type: "wall", start: {x: 260, y: 700}, end: {x: 430, y: 425}, thickness: 12},
 
         // 2) DREI WEGE zum Tor, getrennt durch zwei Inseln aus Wänden:
         //    - Mitte:  der kürzeste Weg, aber nur etwa vier Personen breit
@@ -96,9 +102,19 @@ export const DEFAULT_LEVEL: Level = {
         {type: "wall", start: {x: 630, y: 700}, end: {x: 630, y: 605}, thickness: 12},
         {type: "wall", start: {x: 700, y: 525}, end: {x: 700, y: 620}, thickness: 12},
 
-        // 3) ZWEITER TRICHTER, der exakt an den Torkanten endet. Davor steht
-        //    eine Schikane: Die drei Ströme treffen sich, müssen um die Wand
-        //    herum und drängen sich dann durchs Tor.
+        // 3) TÜR: Alle drei Wege laufen auf eine schmale Tür (etwa neun
+        //    Personen breit) zu. Sie liegt unterhalb der Mitte, das Tor dagegen
+        //    darüber, die Menge muss dahinter also quer durch die Kammer.
+        {type: "wall", start: {x: 840, y: 0}, end: {x: 840, y: 385}, thickness: 12},
+        {type: "wall", start: {x: 840, y: 475}, end: {x: 840, y: 700}, thickness: 12},
+
+        // Säulen in der Kammer hinter der Tür: Der Strom verteilt sich vor dem Trichter.
+        {type: "circle", center: {x: 895, y: 200}, radius: 20},
+        {type: "circle", center: {x: 895, y: 480}, radius: 20},
+
+        // 4) ZWEITER TRICHTER, der exakt an den Torkanten endet. Davor steht
+        //    eine Schikane: Die Menge muss um die Wand herum und drängt sich
+        //    dann durchs Tor.
         {type: "wall", start: {x: 850, y: 0}, end: {x: 1000, y: 250}, thickness: 12},
         {type: "wall", start: {x: 850, y: 700}, end: {x: 1000, y: 350}, thickness: 12},
         {type: "wall", start: {x: 950, y: 240}, end: {x: 950, y: 360}, thickness: 12},

@@ -26,6 +26,14 @@ export const DEFAULT_LEVEL: Level = {
         {x: 540, y: 590, width: 60, height: 100},
     ],
 
+    // Der Referenzwert ist das Ergebnis des Standardplans mit diesem Seed
+    // (siehe `scripts/plans.ts`, Zeile "alle gleichzeitig"); bei Änderungen am
+    // Level oder an der Simulation neu eintragen.
+    scoring: {
+        injuryPenalty: 1,
+        reference: {duration: 77, injured: 196},
+    },
+
     simulation: {
         separationRadius: 16,
         separationStrength: 30,

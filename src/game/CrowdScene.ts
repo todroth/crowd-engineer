@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
 import {DEFAULT_LEVEL} from "./defaultLevel.ts";
 import {DEFAULT_PLAN} from "./defaultPlan.ts";
+import {calculateCost, referenceCost} from "../simulation/scoring.ts";
 import {getDensityColor} from "./getDensityColor.ts";
 
 /** Farbe für Verletzte (Füllung) und den Gefährdungsring; Verletzte haben zusätzlich einen weißen Ring. */
@@ -112,6 +113,10 @@ export class CrowdScene extends Phaser.Scene {
 
     private showResult(): void {
         const stats = this.simulation.stats;
+        const cost = calculateCost(stats, this.level.scoring);
+        const reference = referenceCost(this.level.scoring);
+        const difference = cost - reference;
+
         const lines = [
             stats.arrived + stats.injured < stats.total
                 ? "Zeit abgelaufen"
@@ -122,6 +127,8 @@ export class CrowdScene extends Phaser.Scene {
             `Evakuiert:        ${stats.arrived}/${stats.total}`,
             `Verletzte:        ${stats.injured} (liegen am Boden)`,
             `Dauer:            ${stats.elapsed.toFixed(1)} s`,
+            `Kosten:           ${cost.toFixed(0)}  (Dauer + ${this.level.scoring.injuryPenalty} s je Verletztem, niedriger ist besser)`,
+            `Ohne Maßnahmen:   ${reference.toFixed(0)}  (${difference <= 0 ? "" : "+"}${difference.toFixed(0)})`,
             `Spitzendichte:    ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
             "",
             "Leertaste: Neustart",

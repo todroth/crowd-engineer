@@ -1,5 +1,6 @@
 import type {Obstacle} from "./Obstacle.ts";
 import type {Rect} from "./geometry/Rect.ts";
+import type {ScoringConfig} from "./scoring.ts";
 import type {SimulationConfig} from "./SimulationConfig.ts";
 
 export interface Level {
@@ -36,6 +37,8 @@ export interface Level {
      * gegeben. Wer den Bereich durchquert, hat den Weg gewählt.
      */
     readonly routes: readonly Rect[];
+
+    readonly scoring: ScoringConfig;
 
     readonly obstacles: readonly Obstacle[];
     readonly simulation: SimulationConfig;

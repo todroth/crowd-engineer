@@ -27,6 +27,7 @@ export interface SimulationConfig {
     readonly wallAvoidanceDistance: number;
 
     readonly crush: CrushConfig;
+    readonly injury: InjuryConfig;
     readonly wayfinding: WayfindingConfig;
     readonly panic: PanicConfig;
 }
@@ -85,4 +86,14 @@ export interface CrushConfig {
     readonly fullPressure: number;
     /** Anteil der Geschwindigkeit, der bei vollem Druck bleibt (0..1). */
     readonly minimumMobility: number;
+}
+
+/** Verletzung durch Quetschung, gemessen an der Belastung in Personen pro m². */
+export interface InjuryConfig {
+    /** Ab dieser Belastung steigt der Verletzungswert (Personen/m²). */
+    readonly threshold: number;
+    /** Anstieg pro Sekunde und Person/m² über der Schwelle. */
+    readonly rate: number;
+    /** Erholung pro Sekunde unterhalb der Schwelle. */
+    readonly recovery: number;
 }

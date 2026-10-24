@@ -39,6 +39,12 @@ export const DEFAULT_LEVEL: Level = {
             minimumMobility: 0.2,
         },
 
+        injury: {
+            threshold: 5,
+            rate: 0.1,
+            recovery: 0.02,
+        },
+
         wayfinding: {
             sightRange: 350,
             decisionInterval: 0.8,

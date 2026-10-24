@@ -13,6 +13,7 @@ import {resolveAgentContacts} from "./crowd/resolveAgentContacts.ts";
 import {FlowField} from "./navigation/FlowField.ts";
 import {Wayfinder} from "./navigation/Wayfinder.ts";
 import {perceiveCrowd} from "./crowd/perceiveCrowd.ts";
+import {updateInjury} from "./crowd/updateInjury.ts";
 import {updatePanic} from "./crowd/updatePanic.ts";
 import type {Vector2} from "./Vector2.ts";
 
@@ -33,6 +34,8 @@ export interface RunStats {
     readonly elapsed: number;
     readonly arrived: number;
     readonly total: number;
+    /** Zahl der Agenten, die sich verletzt haben. */
+    readonly injured: number;
     /** Höchste Personendichte, die ein Agent erlebt hat (Personen pro m²). */
     readonly peakDensity: number;
 }
@@ -41,6 +44,7 @@ export class Simulation {
     readonly agents: Agent[];
     /** Anzahl der Agenten, die ihr Ziel erreicht haben. */
     arrivedCount = 0;
+    injuredCount = 0;
     /** Vergangene Simulationszeit (Sekunden). */
     elapsed = 0;
     /** Durchlauf beendet (alle angekommen oder Zeitlimit); nur ohne Respawn. */
@@ -140,6 +144,7 @@ export class Simulation {
             elapsed: this.elapsed,
             arrived: this.arrivedCount,
             total: this.agents.length,
+            injured: this.injuredCount,
             peakDensity: this.peakDensity,
         };
     }
@@ -230,6 +235,17 @@ export class Simulation {
             this.sample,
         );
         agent.localDensity = this.measureDensity(agent);
+        if (
+            updateInjury(
+                agent,
+                agent.localDensity * this.personsPerSquareMeter,
+                config.injury,
+                deltaSeconds,
+            )
+        ) {
+            this.injuredCount++;
+        }
+
         this.peakDensity = Math.max(
             this.peakDensity,
             this.sample.density * this.personsPerSquareMeter,

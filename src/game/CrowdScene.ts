@@ -62,17 +62,33 @@ export class CrowdScene extends Phaser.Scene {
                     agent.position.y,
                 );
                 view.setFillStyle(getDensityColor(agent.localDensity));
+                this.drawInjuryRing(view, agent.injury, agent.injured);
             }
         }
 
         this.updateStatus();
     }
 
+    /** Weißer Ring, dessen Stärke mit der Verletzung wächst; Verletzte voll und dick. */
+    private drawInjuryRing(
+        view: Phaser.GameObjects.Arc,
+        injury: number,
+        injured: boolean,
+    ): void {
+        if (injured) {
+            view.setStrokeStyle(2, 0xffffff, 1);
+        } else if (injury > 0.05) {
+            view.setStrokeStyle(1, 0xffffff, injury);
+        } else if (view.isStroked) {
+            view.setStrokeStyle();
+        }
+    }
+
     private updateStatus(): void {
-        const {arrived, total, elapsed} = this.simulation.stats;
+        const {arrived, total, elapsed, injured} = this.simulation.stats;
 
         this.statusText.setText(
-            `Evakuiert ${arrived}/${total}   Zeit ${elapsed.toFixed(1)} s   [Leertaste: Neustart]`,
+            `Evakuiert ${arrived}/${total}   Verletzt ${injured}   Zeit ${elapsed.toFixed(1)} s   [Leertaste: Neustart]`,
         );
 
         if (this.simulation.finished && !this.resultText) {
@@ -83,9 +99,14 @@ export class CrowdScene extends Phaser.Scene {
     private showResult(): void {
         const stats = this.simulation.stats;
         const lines = [
-            stats.arrived === stats.total ? "Alle evakuiert" : "Zeit abgelaufen",
+            stats.arrived < stats.total
+                ? "Zeit abgelaufen"
+                : stats.injured === 0
+                    ? "Alle evakuiert, niemand verletzt"
+                    : "Alle evakuiert, aber es gab Verletzte",
             "",
             `Evakuiert:        ${stats.arrived}/${stats.total}`,
+            `Verletzte:        ${stats.injured}`,
             `Dauer:            ${stats.elapsed.toFixed(1)} s`,
             `Spitzendichte:    ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
             "",

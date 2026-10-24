@@ -16,6 +16,11 @@ export interface Agent {
     /** Hat das Ziel erreicht und nimmt nicht mehr an der Simulation teil. */
     arrived: boolean;
 
+    /** Quetschungsschaden 0..1; bei 1 gilt der Agent als verletzt. */
+    injury: number;
+    /** Hat sich verletzt (bleibt gesetzt, auch wenn sich der Wert erholt). */
+    injured: boolean;
+
     /** 0 = ruhig, 1 = panisch. */
     panic: number;
 

@@ -29,14 +29,20 @@ const PANIC_NOISE = 0.3;
  *    eher, wer in Panik ist, blendet sie aus und entscheidet unsicher.
  *  - Hat er den Eingang eines Weges durchquert, folgt er wieder dem Hauptfeld.
  */
+export interface WayfinderRoute {
+    readonly entrance: Rect;
+    /** Feld, das zum Eingang führt. */
+    readonly toEntrance: FlowField;
+    /** Feld, dem man nach dem Eingang folgt: das Hauptfeld oder das zum eigenen Ausgang. */
+    readonly afterEntrance: FlowField;
+}
+
 export class Wayfinder {
     private readonly colliders: readonly Collider[];
     private readonly mainField: FlowField;
-    /** Pro Weg ein Feld, das zu dessen Eingang führt. */
-    private readonly routeFields: readonly FlowField[];
-    private readonly entrances: readonly Rect[];
+    private readonly routes: readonly WayfinderRoute[];
     private readonly entranceCenters: readonly Vector2[];
-    /** Länge des Wegs vom Eingang bis ins Ziel. */
+    /** Länge des Wegs vom Eingang bis zum Ausgang. */
     private readonly remainingLength: readonly number[];
     private readonly goalCenters: readonly Vector2[];
     private readonly signs: readonly Sign[];
@@ -46,8 +52,7 @@ export class Wayfinder {
     constructor(
         colliders: readonly Collider[],
         mainField: FlowField,
-        routeFields: readonly FlowField[],
-        entrances: readonly Rect[],
+        routes: readonly WayfinderRoute[],
         goalAreas: readonly Rect[],
         signs: readonly Sign[],
         config: WayfindingConfig,
@@ -55,18 +60,17 @@ export class Wayfinder {
     ) {
         this.colliders = colliders;
         this.mainField = mainField;
-        this.routeFields = routeFields;
-        this.entrances = entrances;
+        this.routes = routes;
         this.signs = signs;
         this.config = config;
         this.random = random;
 
-        this.entranceCenters = entrances.map((area) => ({
-            x: area.x + area.width / 2,
-            y: area.y + area.height / 2,
+        this.entranceCenters = routes.map(({entrance}) => ({
+            x: entrance.x + entrance.width / 2,
+            y: entrance.y + entrance.height / 2,
         }));
-        this.remainingLength = this.entranceCenters.map((center) =>
-            mainField.distanceAt(center.x, center.y),
+        this.remainingLength = routes.map(({afterEntrance}, index) =>
+            afterEntrance.distanceAt(this.entranceCenters[index].x, this.entranceCenters[index].y),
         );
         this.goalCenters = goalAreas.map((area) => ({
             x: area.x + area.width / 2,
@@ -87,7 +91,12 @@ export class Wayfinder {
             return;
         }
 
-        if (this.hasPassedEntrance(agent)) {
+        this.ageSignMemory(agent, deltaSeconds);
+
+        const passed = this.passedRoute(agent);
+
+        if (passed >= 0) {
+            agent.routeChoice = passed;
             agent.committed = true;
             return;
         }
@@ -104,37 +113,57 @@ export class Wayfinder {
     }
 
     /**
-     * Hat der Agent einen Weg betreten? Entweder liegt er im Eingangsbereich,
-     * oder er ist dem Ziel schon näher als der Eingang des gewählten Weges, hat
-     * ihn also am Rand vorbei durchquert. Sonst liefe er weiter dem Feld zum
-     * Eingang nach, der inzwischen hinter ihm liegt, und würde zurückwollen.
+     * Welchen Weg hat der Agent betreten (-1: keinen)? Entweder liegt er im
+     * Eingangsbereich, oder er ist dem Ausgang schon näher als der Eingang
+     * des gewählten Weges, hat ihn also am Rand vorbei durchquert. Sonst liefe er
+     * weiter dem Feld zum Eingang nach, der inzwischen hinter ihm liegt, und
+     * würde zurückwollen.
      */
-    private hasPassedEntrance(agent: Agent): boolean {
-        if (this.entrances.some((area) => rectContains(area, agent.position))) {
-            return true;
+    private passedRoute(agent: Agent): number {
+        const inside = this.routes.findIndex(({entrance}) =>
+            rectContains(entrance, agent.position),
+        );
+
+        if (inside >= 0) {
+            return inside;
         }
 
-        return (
-            agent.routeChoice >= 0 &&
-            this.mainField.distanceAt(agent.position.x, agent.position.y) <
-            this.remainingLength[agent.routeChoice] - PASSED_ENTRANCE_MARGIN
-        );
+        const chosen = agent.routeChoice;
+
+        if (
+            chosen >= 0 &&
+            this.routes[chosen].afterEntrance.distanceAt(agent.position.x, agent.position.y) <
+            this.remainingLength[chosen] - PASSED_ENTRANCE_MARGIN
+        ) {
+            return chosen;
+        }
+
+        return -1;
     }
 
     /** Meldet bewegliche Hindernisse an alle Felder, damit Wege daran vorbeiführen. */
     setObstructions(centers: readonly Vector2[], radius: number): void {
-        this.mainField.setObstructions(centers, radius);
+        const fields = new Set<FlowField>([this.mainField]);
 
-        for (const field of this.routeFields) {
+        for (const route of this.routes) {
+            fields.add(route.toEntrance);
+            fields.add(route.afterEntrance);
+        }
+
+        for (const field of fields) {
             field.setObstructions(centers, radius);
         }
     }
 
     /** Schreibt die Laufrichtung (Einheitsvektor) des Agenten nach `out`. */
     direction(agent: Agent, out: Vector2): void {
-        const field = agent.routeChoice >= 0 && !agent.committed
-            ? this.routeFields[agent.routeChoice]
-            : this.mainField;
+        let field = this.mainField;
+
+        if (agent.routeChoice >= 0) {
+            const route = this.routes[agent.routeChoice];
+
+            field = agent.committed ? route.afterEntrance : route.toEntrance;
+        }
 
         if (
             field.sampleDirection(agent.position.x, agent.position.y, out) ||
@@ -155,22 +184,39 @@ export class Wayfinder {
         out.y = (goal.y - agent.position.y) / distance;
     }
 
-    /** Stärkstes Schild für `route`, das der Agent gerade sieht (0, wenn keines). */
-    private visibleSignStrength(agent: Agent, route: number): number {
-        let strongest = 0;
+    /** Lässt die Erinnerung an gesehene Schilder verblassen. */
+    private ageSignMemory(agent: Agent, deltaSeconds: number): void {
+        for (const memory of agent.signMemory) {
+            memory.secondsLeft = Math.max(0, memory.secondsLeft - deltaSeconds);
+        }
+    }
+
+    /**
+     * Stärke des Schildes für `route`, das der Agent kennt: das stärkste, das er
+     * gerade sieht, oder, falls es verdeckt ist, das gemerkte (0, wenn keines).
+     * Gesehene Schilder werden gemerkt, sonst kippt die Wahl, sobald ein Hindernis
+     * die Sicht auf das Schild verdeckt.
+     */
+    private knownSignStrength(agent: Agent, route: number): number {
+        while (agent.signMemory.length < this.routes.length) {
+            agent.signMemory.push({strength: 0, secondsLeft: 0});
+        }
+
+        const memory = agent.signMemory[route];
 
         for (const sign of this.signs) {
             if (
                 sign.route === route &&
-                sign.strength > strongest &&
+                sign.strength > (memory.secondsLeft > 0 ? memory.strength : 0) &&
                 distanceBetween(agent.position, sign.position) <= this.config.signRange &&
                 hasLineOfSight(agent.position, sign.position, this.colliders)
             ) {
-                strongest = sign.strength;
+                memory.strength = sign.strength;
+                memory.secondsLeft = this.config.signMemory;
             }
         }
 
-        return strongest;
+        return memory.secondsLeft > 0 ? memory.strength : 0;
     }
 
     private chooseRoute(
@@ -187,18 +233,18 @@ export class Wayfinder {
 
         for (let route = 0; route < this.entranceCenters.length; route++) {
             const entrance = this.entranceCenters[route];
-            // Ein Weg kommt in Frage, wenn der Agent seinen Eingang sieht
-            // oder ein Schild, das auf ihn zeigt.
+            // Ein Weg kommt in Frage, wenn der Agent seinen Eingang sieht oder
+            // ein Schild kennt, das auf ihn zeigt.
             const entranceVisible =
                 distanceBetween(agent.position, entrance) <= sightRange &&
                 hasLineOfSight(agent.position, entrance, this.colliders);
-            const signStrength = this.visibleSignStrength(agent, route);
+            const signStrength = this.knownSignStrength(agent, route);
 
             if (!entranceVisible && signStrength === 0) {
                 continue;
             }
 
-            const distance = this.routeFields[route].distanceAt(
+            const distance = this.routes[route].toEntrance.distanceAt(
                 agent.position.x,
                 agent.position.y,
             );
@@ -233,7 +279,9 @@ export class Wayfinder {
             }
         }
 
-        return best;
+        // Sieht der Agent gerade nichts Neues, bleibt er bei seinem Weg, statt
+        // zurückzufallen (sonst kippt die Wahl, sobald etwas die Sicht verdeckt).
+        return best >= 0 ? best : agent.routeChoice;
     }
 }
 

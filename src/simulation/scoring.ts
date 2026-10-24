@@ -7,7 +7,7 @@ export interface ScoringConfig {
     readonly crowdingThreshold: number;
     /** Kosten (in Sekunden) je Personensekunde im Gedränge. */
     readonly crowdingPenalty: number;
-    /** Ergebnis des Laufs ohne Maßnahmen (Standardplan), als Vergleichswert. */
+    /** Ergebnis des Laufs ohne Maßnahmen (`planWithoutMeasures`), als Vergleichswert. */
     readonly reference: {
         readonly duration: number;
         readonly injured: number;

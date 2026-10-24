@@ -51,6 +51,8 @@ export interface WayfindingConfig {
     readonly sightRange: number;
     /** Bis zu dieser Entfernung erkennt ein Agent ein Schild (Pixel). */
     readonly signRange: number;
+    /** So lange erinnert sich ein Agent an ein gesehenes Schild (Sekunden). */
+    readonly signMemory: number;
     /** Größte Kostensenkung eines Weges durch ein Schild (Anteil, bei Stärke 1 und ohne Panik). */
     readonly signInfluence: number;
     /** Mittlere Zeit zwischen zwei Überlegungen eines Agenten (Sekunden). */

@@ -1,9 +1,10 @@
 // Rechnet Szenarien headless durch: node scripts/scenarios.ts [Szenario-Nummer]
-// Je Szenario der Standardplan und, falls es Startblöcke gibt, gestaffelte
-// Pläne (hinten zuletzt). Zeigt Dauer und Verletzte für drei Seeds.
+// Je Szenario der Lauf ohne Maßnahmen, der Startplan, die Beispielpläne und, falls
+// es Startblöcke gibt, gestaffelte Pläne (hinten zuletzt). Zeigt Dauer und Verletzte für drei Seeds.
 import {Simulation} from "../src/simulation/Simulation.ts";
 import type {Plan} from "../src/simulation/Plan.ts";
 import {calculateCost} from "../src/simulation/scoring.ts";
+import {planWithoutMeasures} from "../src/game/Scenario.ts";
 import {SCENARIOS} from "../src/game/scenarios.ts";
 
 const only = process.argv[2] === undefined ? undefined : Number(process.argv[2]) - 1;
@@ -16,7 +17,8 @@ SCENARIOS.forEach(({level, plan, examples}, index) => {
     console.log(`\n${index + 1} ${level.name} (${level.agentCount} Agenten)`);
 
     const plans: [string, Plan][] = [
-        ["Standardplan", plan],
+        ["Ohne Maßnahmen", planWithoutMeasures(level)],
+        ["Startplan", plan],
         ...(examples ?? []).map(({name, plan: example}): [string, Plan] => [name, example]),
     ];
     const blocks = level.sectors.length;

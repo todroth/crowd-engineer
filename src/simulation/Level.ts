@@ -3,6 +3,19 @@ import type {Rect} from "./geometry/Rect.ts";
 import type {ScoringConfig} from "./scoring.ts";
 import type {SimulationConfig} from "./SimulationConfig.ts";
 
+/** Ein Weg, zwischen denen die Agenten wählen können. */
+export interface RouteOption {
+    /** Bereich am Anfang des Weges; wer ihn durchquert, hat den Weg gewählt. */
+    readonly entrance: Rect;
+    /**
+     * Index eines Ausgangs in `goalAreas`, der nur über diesen Weg bekannt ist:
+     * Er fehlt im Hauptfeld, die Menge läuft also zu den anderen Ausgängen, bis
+     * jemand den Weg sieht oder ein Schild darauf zeigt (etwa ein unbekannter
+     * Notausgang). Ohne Angabe führt der Weg zu den bekannten Ausgängen.
+     */
+    readonly exit?: number;
+}
+
 export interface Level {
     /** Name und kurze Beschreibung für die Anzeige. */
     readonly name: string;
@@ -45,7 +58,7 @@ export interface Level {
      * Alternative Wege zum Ziel, jeweils durch ihren Eingangsbereich
      * gegeben. Wer den Bereich durchquert, hat den Weg gewählt.
      */
-    readonly routes: readonly Rect[];
+    readonly routes: readonly RouteOption[];
 
     readonly scoring: ScoringConfig;
 

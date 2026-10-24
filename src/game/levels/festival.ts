@@ -5,7 +5,7 @@ import {circle, rectangle, wall} from "./shapes.ts";
 
 const level: Level = {
     name: "Festival: Brücke",
-    description: "Geordnete Räumung: Das Gelände liegt hinter einem Fluss. Es gibt nur die Hauptbrücke und einen schmalen Steg im Norden.",
+    description: "Geordnete Räumung: Hinter dem Fluss liegen zwei Ausgänge. Die Menge kennt nur den Hauptausgang, der Steg im Norden führt zu einem unbekannten Nordausgang.",
 
     worldWidth: 1000,
     worldHeight: 700,
@@ -24,22 +24,29 @@ const level: Level = {
     entryArea: {x: -30, y: 60, width: 25, height: 580},
     respawn: false,
     timeLimit: 600,
-    // Der Ausgang am rechten Rand.
-    goalAreas: [{x: 1000, y: 296, width: 40, height: 108}],
+    goalAreas: [
+        // Hauptausgang am rechten Rand, über die Hauptbrücke erreichbar.
+        {x: 1000, y: 296, width: 40, height: 108},
+        // Nordausgang oben rechts, nur über den Steg bekannt.
+        {x: 1000, y: 36, width: 40, height: 68},
+    ],
     walkingSpeed: WALKING_SPEED,
-    // Zugänge der beiden Übergänge: Hauptbrücke und Steg im Norden.
+    // Zugänge der beiden Übergänge: Hauptbrücke und Steg im Norden. Der Nordausgang
+    // ist unbekannt: Die Menge läuft zur Hauptbrücke, bis jemand den Steg sieht oder
+    // ein Schild darauf zeigt.
     routes: [
-        {x: 360, y: 320, width: 70, height: 60},
-        {x: 360, y: 80, width: 70, height: 40},
+        {entrance: {x: 360, y: 320, width: 70, height: 60}},
+        {entrance: {x: 360, y: 80, width: 70, height: 40}, exit: 1},
     ],
 
-    // Ergebnis des Standardplans mit diesem Seed (`npm run scenarios`); bei Änderungen neu eintragen.
+    // Ergebnis des Laufs ohne Maßnahmen mit diesem Seed (`npm run scenarios`, Zeile "Ohne Maßnahmen");
+    // bei Änderungen neu eintragen.
     // Bei geordneter Räumung gilt Gedränge schon ab 2,5 Personen/m² als unangenehm.
     scoring: {
         injuryPenalty: 1,
         crowdingThreshold: 2.5,
         crowdingPenalty: 0.01,
-        reference: {duration: 151, injured: 19, crowdedSeconds: 47760},
+        reference: {duration: 140, injured: 10, crowdedSeconds: 42655},
     },
 
     simulation: CALM_BEHAVIOR,
@@ -50,11 +57,14 @@ const level: Level = {
         wall(0, 700, 1000, 700),
         wall(0, 0, 0, 700),
 
-        // Der Fluss (x 430 bis 570) mit zwei Übergängen: dem Steg (y 70 bis 130)
+        // Der Fluss (x 430 bis 570) mit zwei Übergängen: dem Steg (y 60 bis 140)
         // und der Hauptbrücke (y 310 bis 390). Die Ufer sind Rechtecke.
-        rectangle(430, 0, 140, 70),
-        rectangle(430, 130, 140, 180),
+        rectangle(430, 0, 140, 60),
+        rectangle(430, 140, 140, 170),
         rectangle(430, 390, 140, 310),
+
+        // Zaun vor dem Steg: Er verdeckt von der Wiese aus den Weg dorthin.
+        wall(330, 25, 330, 215),
 
         // Bühne, Stände und Bäume auf dem Gelände.
         rectangle(40, 280, 60, 140),
@@ -66,17 +76,24 @@ const level: Level = {
         circle(340, 160, 18),
         circle(340, 540, 18),
 
-        // Trichter hinter der Brücke: führt die Menge auf den Ausgang zu.
-        wall(680, 0, 1000, 290),
+        // Trichter hinter der Brücke führt die Menge auf den Hauptausgang zu; über
+        // ihm bleibt eine Gasse vom Steg zum Nordausgang frei.
+        wall(700, 170, 1000, 290),
         wall(680, 700, 1000, 410),
 
-        // Rechte Außenwand mit dem Ausgang (y 290 bis 410).
-        wall(1000, 0, 1000, 290),
+        // Rechte Außenwand mit dem Hauptausgang (y 290 bis 410) und dem Nordausgang (y 30 bis 110).
+        wall(1000, 0, 1000, 30),
+        wall(1000, 110, 1000, 290),
         wall(1000, 410, 1000, 700),
     ],
 };
 
+/** Wege: 0 = Hauptbrücke, 1 = Steg im Norden. */
 export const FESTIVAL: Scenario = {
     level,
-    plan: {signs: [], releaseDelays: [0, 0, 0]},
+    // Ein Schild weist von der Wiese zum Steg und entlastet die Hauptbrücke ein wenig.
+    plan: {
+        releaseDelays: [0, 0, 0],
+        signs: [{position: {x: 260, y: 300}, route: 1, strength: 0.9}],
+    },
 };

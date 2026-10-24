@@ -136,21 +136,31 @@ export class Simulation {
             wallAvoidanceDistance: config.wallAvoidanceDistance,
         };
 
+        // Ausgänge, die nur über einen bestimmten Weg bekannt sind, fehlen im Hauptfeld.
+        const knownGoals = level.goalAreas.filter(
+            (_, index) => !level.routes.some((route) => route.exit === index),
+        );
+
         this.flowField = new FlowField(
             this.colliders,
             this.fieldBounds(),
-            level.goalAreas,
+            knownGoals,
             fieldOptions,
         );
+
+        const bounds = this.fieldBounds();
 
         this.wayfinder = new Wayfinder(
             this.colliders,
             this.flowField,
-            level.routes.map(
-                (entrance) =>
-                    new FlowField(this.colliders, this.fieldBounds(), [entrance], fieldOptions),
-            ),
-            level.routes,
+            level.routes.map(({entrance, exit}) => ({
+                entrance,
+                toEntrance: new FlowField(this.colliders, bounds, [entrance], fieldOptions),
+                afterEntrance:
+                    exit === undefined
+                        ? this.flowField
+                        : new FlowField(this.colliders, bounds, [level.goalAreas[exit]], fieldOptions),
+            })),
             level.goalAreas,
             plan.signs,
             config.wayfinding,
@@ -228,14 +238,20 @@ export class Simulation {
         );
 
         for (const agent of this.agents) {
-            if (!agent.arrived && this.level.goalAreas.some((goal) => rectContains(goal, agent.position))) {
+            // Verletzte, die von der Menge in den Ausgangsbereich geschoben werden,
+            // zählen nicht als angekommen (sie sind schon als Verletzte gezählt).
+            if (
+                !agent.arrived &&
+                !agent.injured &&
+                this.level.goalAreas.some((goal) => rectContains(goal, agent.position))
+            ) {
                 this.arrive(agent);
             }
         }
 
         if (
             !this.level.respawn &&
-            (this.arrivedCount + this.injuredCount === this.agents.length ||
+            (this.arrivedCount + this.injuredCount >= this.agents.length ||
                 this.elapsed >= this.level.timeLimit)
         ) {
             this.finished = true;

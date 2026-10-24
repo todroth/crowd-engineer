@@ -44,6 +44,7 @@ export class AgentSpawner {
             rescued: false,
             panic: 0,
             pressure: 0,
+            signMemory: [],
             routeChoice: -1,
             committed: false,
             decisionTimer: 0,
@@ -79,6 +80,7 @@ export class AgentSpawner {
         agent.rescued = false;
         agent.panic = 0;
         agent.pressure = 0;
+        agent.signMemory = [];
         agent.routeChoice = -1;
         agent.committed = false;
         agent.decisionTimer = 0;

@@ -27,18 +27,20 @@ const level: Level = {
         {x: 50, y: 700, width: 50, height: 40},
     ],
     walkingSpeed: RUNNING_SPEED,
-    // Zugänge der beiden Ausgänge: Tür zur Vorhalle und Notausgang.
+    // Zugänge der beiden Ausgänge: Tür zur Vorhalle und Notausgang. Der Notausgang
+    // ist unbekannt: Die Menge läuft zur Tür, bis jemand ihn sieht oder ein Schild darauf zeigt.
     routes: [
-        {x: 600, y: 350, width: 70, height: 40},
-        {x: 30, y: 620, width: 80, height: 60},
+        {entrance: {x: 600, y: 350, width: 70, height: 40}},
+        {entrance: {x: 30, y: 620, width: 80, height: 60}, exit: 1},
     ],
 
-    // Ergebnis des Standardplans mit diesem Seed (`npm run scenarios`); bei Änderungen neu eintragen.
+    // Ergebnis des Laufs ohne Maßnahmen mit diesem Seed (`npm run scenarios`, Zeile "Ohne Maßnahmen");
+    // bei Änderungen neu eintragen.
     scoring: {
         injuryPenalty: 1,
         crowdingThreshold: 4,
         crowdingPenalty: 0.01,
-        reference: {duration: 47, injured: 43, crowdedSeconds: 8520},
+        reference: {duration: 58, injured: 84, crowdedSeconds: 11543},
     },
 
     simulation: PANIC_BEHAVIOR,
@@ -75,7 +77,28 @@ const level: Level = {
     ],
 };
 
+/** Wege: 0 = Tür zum Hauptausgang, 1 = Notausgang. */
 export const NACHTCLUB: Scenario = {
     level,
-    plan: {signs: [], releaseDelays: []},
+    // Zwei Schilder zum unbekannten Notausgang verteilen die Menge.
+    plan: {
+        releaseDelays: [],
+        signs: [
+            {position: {x: 250, y: 520}, route: 1, strength: 0.9},
+            {position: {x: 430, y: 600}, route: 1, strength: 0.9},
+        ],
+    },
+    examples: [
+        {
+            name: "Drei Schilder (zu viele, der Notausgang läuft über)",
+            plan: {
+                releaseDelays: [],
+                signs: [
+                    {position: {x: 250, y: 520}, route: 1, strength: 0.9},
+                    {position: {x: 430, y: 600}, route: 1, strength: 0.9},
+                    {position: {x: 200, y: 300}, route: 1, strength: 0.9},
+                ],
+            },
+        },
+    ],
 };

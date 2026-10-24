@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
 import type {Level} from "../simulation/Level.ts";
 import type {Plan} from "../simulation/Plan.ts";
+import {planWithoutMeasures} from "./Scenario.ts";
 import {SCENARIOS} from "./scenarios.ts";
 import {calculateCost, referenceCost} from "../simulation/scoring.ts";
 import {getDensityColor} from "./getDensityColor.ts";
@@ -18,7 +19,7 @@ export class CrowdScene extends Phaser.Scene {
 
     private level!: Level;
     private scenarioIndex = 0;
-    /** Index in der Liste der Pläne des Szenarios (0 = Standardplan, danach die Beispiele). */
+    /** Index in der Liste der Pläne des Szenarios (0 = Startplan, 1 = ohne Maßnahmen, danach Beispiele). */
     private planIndex = 0;
     /** Abspielgeschwindigkeit (1, 2 oder 4), bleibt über Neustarts erhalten. */
     private speed = 1;
@@ -37,8 +38,17 @@ export class CrowdScene extends Phaser.Scene {
 
     create(data?: {scenario?: number; plan?: number}): void {
 
-        this.scenarioIndex = data?.scenario ?? this.scenarioIndex;
-        this.planIndex = data?.plan ?? 0;
+        // Beim ersten Start können Szenario und Plan über die URL gewählt werden
+        // (?scenario=2&plan=1, jeweils ab 1 gezählt, der Plan ab 0).
+        const query = new URLSearchParams(window.location.search);
+        const startScenario = Number(query.get("scenario") ?? 1) - 1;
+        const startPlan = Number(query.get("plan") ?? 0);
+
+        // Phaser übergibt beim ersten Start ein leeres Objekt, bei `restart` unsere Werte.
+        const restarted = data?.scenario !== undefined;
+
+        this.scenarioIndex = restarted ? data.scenario! : startScenario;
+        this.planIndex = restarted ? data.plan ?? 0 : startPlan;
 
         const scenario = SCENARIOS[this.scenarioIndex];
         const plan = this.plans()[this.planIndex];
@@ -79,7 +89,7 @@ export class CrowdScene extends Phaser.Scene {
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
             .on("down", () => this.scene.restart({scenario: this.scenarioIndex, plan: this.planIndex}));
 
-        // P wechselt zum nächsten Plan des Szenarios (Standardplan, dann die Beispiele).
+        // P wechselt zum nächsten Plan des Szenarios (Startplan, ohne Maßnahmen, Beispiele).
         this.input.keyboard
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.P)
             .on("down", () =>
@@ -160,12 +170,13 @@ export class CrowdScene extends Phaser.Scene {
         );
     }
 
-    /** Die wählbaren Pläne des aktuellen Szenarios: Standardplan und Beispiele. */
+    /** Die wählbaren Pläne des aktuellen Szenarios: Startplan, ohne Maßnahmen und Beispiele. */
     private plans(): readonly {readonly name: string; readonly plan: Plan}[] {
         const scenario = SCENARIOS[this.scenarioIndex];
 
         return [
-            {name: "Standardplan", plan: scenario.plan},
+            {name: "Startplan", plan: scenario.plan},
+            {name: "Ohne Maßnahmen (Vergleichswert)", plan: planWithoutMeasures(scenario.level)},
             ...(scenario.examples ?? []),
         ];
     }
@@ -175,7 +186,7 @@ export class CrowdScene extends Phaser.Scene {
         const graphics = this.add.graphics().setDepth(5);
 
         for (const sign of plan.signs) {
-            const entrance = this.level.routes[sign.route];
+            const {entrance} = this.level.routes[sign.route];
             const dx = entrance.x + entrance.width / 2 - sign.position.x;
             const dy = entrance.y + entrance.height / 2 - sign.position.y;
             const length = Math.hypot(dx, dy) || 1;

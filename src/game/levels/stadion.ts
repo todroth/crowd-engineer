@@ -30,20 +30,23 @@ const level: Level = {
         {x: 1000, y: 546, width: 40, height: 48},
     ],
     walkingSpeed: WALKING_SPEED,
-    // Zugänge der drei Tore (jeweils vor ihrem Trichter).
+    // Zugänge der drei Tore (jeweils vor ihrem Trichter). Die Menge kennt nur das
+    // mittlere Tor, die beiden äußeren erkennt sie erst, wenn sie sie sieht oder ein
+    // Schild darauf zeigt.
     routes: [
-        {x: 880, y: 70, width: 40, height: 100},
-        {x: 880, y: 285, width: 40, height: 130},
-        {x: 880, y: 500, width: 40, height: 150},
+        {entrance: {x: 880, y: 70, width: 40, height: 100}, exit: 0},
+        {entrance: {x: 880, y: 285, width: 40, height: 130}},
+        {entrance: {x: 880, y: 500, width: 40, height: 150}, exit: 2},
     ],
 
-    // Ergebnis des Standardplans mit diesem Seed (`npm run scenarios`); bei Änderungen neu eintragen.
+    // Ergebnis des Laufs ohne Maßnahmen mit diesem Seed (`npm run scenarios`, Zeile "Ohne Maßnahmen");
+    // bei Änderungen neu eintragen.
     // Bei geordneter Räumung gilt Gedränge schon ab 2,5 Personen/m² als unangenehm.
     scoring: {
         injuryPenalty: 1,
         crowdingThreshold: 2.5,
         crowdingPenalty: 0.01,
-        reference: {duration: 119, injured: 0, crowdedSeconds: 39240},
+        reference: {duration: 127, injured: 0, crowdedSeconds: 43509},
     },
 
     simulation: CALM_BEHAVIOR,
@@ -86,7 +89,29 @@ const level: Level = {
     ],
 };
 
+/** Wege: 0 = oberes Tor, 1 = mittleres Tor (bekannt), 2 = unteres Tor. */
 export const STADION: Scenario = {
     level,
-    plan: {signs: [], releaseDelays: [0, 0, 0]},
+    // Vier Schilder an den Treppen weisen auf die beiden unbekannten äußeren Tore.
+    plan: {
+        releaseDelays: [0, 0, 0],
+        signs: [
+            {position: {x: 330, y: 120}, route: 0, strength: 0.9},
+            {position: {x: 330, y: 230}, route: 0, strength: 0.9},
+            {position: {x: 330, y: 470}, route: 2, strength: 0.9},
+            {position: {x: 330, y: 580}, route: 2, strength: 0.9},
+        ],
+    },
+    examples: [
+        {
+            name: "Schilder erst im Vorplatz (zu spät, schadet)",
+            plan: {
+                releaseDelays: [0, 0, 0],
+                signs: [
+                    {position: {x: 600, y: 230}, route: 0, strength: 0.9},
+                    {position: {x: 600, y: 470}, route: 2, strength: 0.9},
+                ],
+            },
+        },
+    ],
 };

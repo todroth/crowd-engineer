@@ -24,19 +24,19 @@ const level: Level = {
     walkingSpeed: RUNNING_SPEED,
     // Eingänge der drei Wege: Mitte, oben, unten.
     routes: [
-        {x: 580, y: 330, width: 140, height: 40},
-        {x: 540, y: 20, width: 40, height: 140},
-        {x: 540, y: 590, width: 60, height: 100},
+        {entrance: {x: 580, y: 330, width: 140, height: 40}},
+        {entrance: {x: 540, y: 20, width: 40, height: 140}},
+        {entrance: {x: 540, y: 590, width: 60, height: 100}},
     ],
 
-    // Der Referenzwert ist das Ergebnis des Standardplans mit diesem Seed
-    // (`npm run scenarios`, Zeile "Standardplan", Seed 1); bei Änderungen am
+    // Der Referenzwert ist das Ergebnis des Laufs ohne Maßnahmen mit diesem Seed
+    // (`npm run scenarios`, Zeile "Ohne Maßnahmen", Seed 1); bei Änderungen am
     // Level oder an der Simulation neu eintragen.
     scoring: {
         injuryPenalty: 1,
         crowdingThreshold: 4,
         crowdingPenalty: 0.01,
-        reference: {duration: 66, injured: 136, crowdedSeconds: 9900},
+        reference: {duration: 68, injured: 141, crowdedSeconds: 10058},
     },
 
     simulation: PANIC_BEHAVIOR,
@@ -103,25 +103,22 @@ const level: Level = {
 /** Wege: 0 = Mitte (Tunnel), 1 = oben, 2 = unten. */
 export const HALLENBRAND: Scenario = {
     level,
-    plan: {signs: [], releaseDelays: []},
+    // Schilder dort, wo sich der Weg teilt (hinter dem Trichter), entlasten den Mitteltunnel.
+    plan: {
+        releaseDelays: [],
+        signs: [
+            {position: {x: 480, y: 150}, route: 1, strength: 0.9},
+            {position: {x: 480, y: 550}, route: 2, strength: 0.9},
+        ],
+    },
     examples: [
         {
-            name: "Schilder zu oberem und unterem Weg (am Startplatz)",
+            name: "Schilder am Startplatz (zu früh, schadet)",
             plan: {
                 releaseDelays: [],
                 signs: [
                     {position: {x: 240, y: 110}, route: 1, strength: 0.9},
                     {position: {x: 240, y: 590}, route: 2, strength: 0.9},
-                ],
-            },
-        },
-        {
-            name: "Schilder zu oberem und unterem Weg (hinter dem Trichter)",
-            plan: {
-                releaseDelays: [],
-                signs: [
-                    {position: {x: 480, y: 150}, route: 1, strength: 0.9},
-                    {position: {x: 480, y: 550}, route: 2, strength: 0.9},
                 ],
             },
         },

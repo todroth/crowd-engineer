@@ -16,19 +16,7 @@ const PASSED_ENTRANCE_MARGIN = 5;
 /** Wie unsicher panische Agenten ihre Wahl treffen (±Anteil der Kosten). */
 const PANIC_NOISE = 0.3;
 
-/**
- * Entscheidet, welchem Flow-Field ein Agent folgt. Bewegt wird immer über
- * Felder (glatt, ohne an Wänden hängenzubleiben); entschieden wird lokal:
- *
- *  - Standard ist das Hauptfeld (kürzester Weg zum Ziel).
- *  - Ein anderer Weg kommt nur in Frage, solange der Agent seinen Eingang
- *    sehen kann (freie Sichtlinie, begrenzte Reichweite). Dann folgt er dem
- *    Feld dieses Weges.
- *  - Sichtbare Wege bewertet er nach Länge (mit eigenem Schätzfehler) und nach
- *    dem Gedränge, das er davor sieht. Wer Vorsicht walten lässt, meidet Staus
- *    eher, wer in Panik ist, blendet sie aus und entscheidet unsicher.
- *  - Hat er den Eingang eines Weges durchquert, folgt er wieder dem Hauptfeld.
- */
+/** Ein Weg, wie ihn der Wayfinder kennt: Eingang und die beiden Felder. */
 export interface WayfinderRoute {
     readonly entrance: Rect;
     /** Feld, das zum Eingang führt. */
@@ -37,9 +25,28 @@ export interface WayfinderRoute {
     readonly afterEntrance: FlowField;
 }
 
+/**
+ * Entscheidet, welchem Flow-Field ein Agent folgt. Bewegt wird immer über
+ * Felder (glatt, ohne an Wänden hängenzubleiben); entschieden wird lokal:
+ *
+ *  - Standard ist das Hauptfeld (kürzester Weg zu den bekannten Ausgängen).
+ *  - Ein anderer Weg kommt nur in Frage, wenn der Agent seinen Eingang sieht
+ *    (freie Sichtlinie, begrenzte Reichweite) oder ein Schild kennt, das darauf
+ *    zeigt (gesehene Schilder werden eine Weile gemerkt). Dann folgt er dem
+ *    Feld zu diesem Eingang.
+ *  - Mögliche Wege bewertet er nach Länge (mit eigenem Schätzfehler), nach dem
+ *    Gedränge, das er davor sieht, und nach Schildern. Wer vorsichtig ist, meidet
+ *    Staus eher; wer in Panik ist, blendet Staus und Schilder aus und
+ *    entscheidet unsicher.
+ *  - Sieht er gerade nichts Neues, bleibt er bei seinem Weg.
+ *  - Hat er den Eingang durchquert, ist der Weg fest gewählt: Er folgt dann dem
+ *    Feld nach dem Eingang (Hauptfeld oder Feld zum eigenen Ausgang des Weges).
+ */
 export class Wayfinder {
+    /** Kürzester Weg zu den bekannten Ausgängen; Standard, solange kein anderer Weg gewählt ist. */
+    readonly mainField: FlowField;
+
     private readonly colliders: readonly Collider[];
-    private readonly mainField: FlowField;
     private readonly routes: readonly WayfinderRoute[];
     private readonly entranceCenters: readonly Vector2[];
     /** Länge des Wegs vom Eingang bis zum Ausgang. */

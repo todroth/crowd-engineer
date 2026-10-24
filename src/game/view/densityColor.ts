@@ -4,8 +4,10 @@ interface ColorStop {
 }
 
 /**
- * Je dunkler, desto schlechter. Die Skala deckt die gesamte Spanne ab, die
- * in der Simulation vorkommt (bis etwa 20, an Wänden eingeklemmt):
+ * Je dunkler, desto schlechter. Die Werte sind Kernel-Dichten (`Agent.localDensity`,
+ * inklusive Wandverstärkung; mit den Standardwerten ≈ 0,39 Personen/m² je Einheit).
+ * Die Skala deckt die gesamte Spanne ab, die in der Simulation vorkommt (bis etwa
+ * 20, an Wänden eingeklemmt):
  *
  *   hellgrün → gelb → orange:   frei bis eng
  *   rot → dunkelrot → fast schwarz:   Gedränge bis Quetschgefahr
@@ -19,7 +21,6 @@ const COLOR_STOPS: readonly ColorStop[] = [
     {density: 16, color: 0x6a0a2b}, // Weinrot: gefährlich
     {density: 20, color: 0x2a0518}, // Fast schwarz: Quetschgefahr
 ];
-
 
 function interpolateColor(
     from: number,
@@ -41,6 +42,7 @@ function interpolateColor(
     return (r << 16) | (g << 8) | b;
 }
 
+/** Farbe eines Agenten mit dieser Kernel-Dichte. */
 export function getDensityColor(density: number): number {
     if (density <= COLOR_STOPS[0].density) {
         return COLOR_STOPS[0].color;

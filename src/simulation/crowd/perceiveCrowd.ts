@@ -1,6 +1,6 @@
 import type {Agent} from "../Agent.ts";
 import type {Vector2} from "../Vector2.ts";
-import type {SpatialGrid} from "../../spatial/SpatialGrid.ts";
+import type {SpatialGrid} from "../spatial/SpatialGrid.ts";
 
 const SAMPLE_SPACING = 20;
 const SAMPLE_RADIUS = 16;

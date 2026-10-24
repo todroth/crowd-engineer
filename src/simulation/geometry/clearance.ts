@@ -43,7 +43,22 @@ export function hasLineOfSight(
     to: Vector2,
     colliders: readonly Collider[],
 ): boolean {
+    const minX = Math.min(from.x, to.x);
+    const maxX = Math.max(from.x, to.x);
+    const minY = Math.min(from.y, to.y);
+    const maxY = Math.max(from.y, to.y);
+
     for (const collider of colliders) {
+        const {bounds} = collider;
+
+        // Liegt die Sichtlinie ganz neben dem umgebenden Rechteck, kann das Hindernis sie nicht verdecken.
+        if (
+            bounds.x > maxX || bounds.x + bounds.width < minX ||
+            bounds.y > maxY || bounds.y + bounds.height < minY
+        ) {
+            continue;
+        }
+
         if (
             collider.solid &&
             (isInsideRect(from, collider.solid) || isInsideRect(to, collider.solid))

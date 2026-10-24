@@ -1,10 +1,10 @@
 // Rechnet Szenarien headless und parallel durch:
 //   node scripts/scenarios.ts [Szenario-Nummer] [--seeds=N]
-// Je Szenario der Lauf ohne Maßnahmen, der Startplan, die Beispielpläne und, falls es
+// Je Szenario alle Pläne wie im Spiel (Nummer = URL-Parameter `plan`) und, falls es
 // Startblöcke gibt, gestaffelte Pläne (hinten zuletzt). Zeigt Dauer, Verletzte,
 // Gedränge und Kosten je Seed (Standard: 3 Seeds, `--seeds=1` geht am schnellsten).
 import type {Plan} from "../src/simulation/Plan.ts";
-import {planWithoutMeasures} from "../src/game/Scenario.ts";
+import {scenarioPlans} from "../src/game/Scenario.ts";
 import {SCENARIOS} from "../src/game/scenarios.ts";
 import {type Job, runJobs} from "./lib/pool.ts";
 
@@ -22,16 +22,16 @@ interface Row {
 
 const rows: Row[] = [];
 
-SCENARIOS.forEach(({level, plan, examples}, scenario) => {
+SCENARIOS.forEach((entry, scenario) => {
+    const {level, plan} = entry;
+
     if (only !== undefined && only !== scenario) {
         return;
     }
 
-    const plans: [string, Plan][] = [
-        ["Ohne Maßnahmen", planWithoutMeasures(level)],
-        ["Startplan", plan],
-        ...(examples ?? []).map(({name, plan: example}): [string, Plan] => [name, example]),
-    ];
+    const plans: [string, Plan][] = scenarioPlans(entry).map(
+        ({name, plan: candidate}, index): [string, Plan] => [`${index} ${name}`, candidate],
+    );
     const blocks = level.sectors.length;
 
     for (const step of blocks > 0 ? [5, 10, 20, 40] : []) {

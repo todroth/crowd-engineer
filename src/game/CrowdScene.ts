@@ -1,72 +1,115 @@
 import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
 import type {Level} from "../simulation/Level.ts";
-import type {Plan} from "../simulation/Plan.ts";
-import {planWithoutMeasures} from "./Scenario.ts";
+import {type NamedPlan, scenarioPlans} from "./Scenario.ts";
 import {SCENARIOS} from "./scenarios.ts";
-import {calculateCost, referenceCost} from "../simulation/scoring.ts";
-import {getDensityColor} from "./getDensityColor.ts";
+import {drawFlowField, drawGrid, drawObstacles, drawSigns} from "./view/drawLevel.ts";
+import {PeopleView} from "./view/PeopleView.ts";
+import {resultText} from "./view/resultText.ts";
 
-/** Farbe für Verletzte (Füllung) und den Gefährdungsring; Verletzte haben zusätzlich einen weißen Ring. */
-const INJURED_COLOR = 0x000000;
+/** Wählbare Abspielgeschwindigkeiten (Taste S). */
+const SPEEDS = [1, 2, 4] as const;
 
-/** Abtransportierte Verletzte: blass graurot, damit man sie sieht, sie aber nicht auffallen. */
-const RESCUED_COLOR = 0x7a5a5f;
-const RESCUED_ALPHA = 0.45;
+/** Auswahl, mit der die Szene (neu) gestartet wird. */
+interface Selection {
+    /** Index in `SCENARIOS`. */
+    readonly scenario: number;
+    /** Index in `scenarioPlans(...)`. */
+    readonly plan: number;
+}
 
+/**
+ * Die einzige Szene: zeigt ein Szenario mit einem Plan und lässt die Simulation
+ * laufen. Ein Szenario- oder Planwechsel startet die Szene neu.
+ *
+ * Tasten: 1–9 Szenario, P nächster Plan, Leertaste Neustart, S Tempo,
+ * R Flow-Field anzeigen. URL: `?scenario=2&plan=1` (Szenario ab 1, Plan ab 0).
+ */
 export class CrowdScene extends Phaser.Scene {
     private simulation!: Simulation;
-
     private level!: Level;
-    private scenarioIndex = 0;
-    /** Index in der Liste der Pläne des Szenarios (0 = Startplan, 1 = ohne Maßnahmen, danach Beispiele). */
-    private planIndex = 0;
-    /** Abspielgeschwindigkeit (1, 2 oder 4), bleibt über Neustarts erhalten. */
-    private speed = 1;
+    private selection!: Selection;
+    /** Index in `SPEEDS`; bleibt über Neustarts erhalten (die Szene-Instanz bleibt dieselbe). */
+    private speedIndex = 0;
 
-    private readonly personViews = new Map<number, Phaser.GameObjects.Arc>();
-
+    private people!: PeopleView;
     private flowGraphics!: Phaser.GameObjects.Graphics;
     private showFlowDebug = false;
-
     private statusText!: Phaser.GameObjects.Text;
-    private resultText?: Phaser.GameObjects.Text;
+    private resultShown = false;
 
     constructor() {
         super("CrowdScene");
     }
 
-    create(data?: {scenario?: number; plan?: number}): void {
+    /** Phaser übergibt beim ersten Start ein leeres Objekt, bei `restart` eine `Selection`. */
+    create(data?: Partial<Selection>): void {
+        this.selection =
+            data?.scenario === undefined
+                ? selectionFromUrl()
+                : {scenario: data.scenario, plan: data.plan ?? 0};
 
-        // Beim ersten Start können Szenario und Plan über die URL gewählt werden
-        // (?scenario=2&plan=1, jeweils ab 1 gezählt, der Plan ab 0).
-        const query = new URLSearchParams(window.location.search);
-        const startScenario = Number(query.get("scenario") ?? 1) - 1;
-        const startPlan = Number(query.get("plan") ?? 0);
-
-        // Phaser übergibt beim ersten Start ein leeres Objekt, bei `restart` unsere Werte.
-        const restarted = data?.scenario !== undefined;
-
-        this.scenarioIndex = restarted ? data.scenario! : startScenario;
-        this.planIndex = restarted ? data.plan ?? 0 : startPlan;
-
-        const scenario = SCENARIOS[this.scenarioIndex];
-        const plan = this.plans()[this.planIndex];
+        const scenario = SCENARIOS[this.selection.scenario];
+        const {plan} = this.plans()[this.selection.plan];
 
         this.level = scenario.level;
-        this.simulation = new Simulation(scenario.level, plan.plan);
-        this.personViews.clear();
-        this.resultText = undefined;
+        this.simulation = new Simulation(scenario.level, plan);
+        this.resultShown = false;
 
-        this.drawGrid();
-        this.drawObstacles();
-        this.drawSigns(plan.plan);
-        this.createPeople();
-
+        drawGrid(this, this.level);
+        drawObstacles(this, this.level);
+        drawSigns(this, plan, this.simulation);
+        this.people = new PeopleView(this, this.simulation.agents);
         this.flowGraphics = this.add.graphics().setDepth(10);
+        this.createTexts();
+        this.bindKeys();
+    }
+
+    override update(_time: number, delta: number): void {
+        this.simulation.update((delta / 1000) * SPEEDS[this.speedIndex]);
+        this.people.update(this.simulation.agents);
+        this.updateStatus();
+    }
+
+    private plans(): readonly NamedPlan[] {
+        return scenarioPlans(SCENARIOS[this.selection.scenario]);
+    }
+
+    private bindKeys(): void {
+        const {KeyCodes} = Phaser.Input.Keyboard;
+        const onKey = (key: number, action: () => void): void => {
+            this.input.keyboard?.addKey(key).on("down", action);
+        };
+
+        onKey(KeyCodes.R, () => {
+            this.showFlowDebug = !this.showFlowDebug;
+            this.flowGraphics.clear();
+
+            if (this.showFlowDebug) {
+                drawFlowField(this.flowGraphics, this.simulation.flowField, this.level.simulation.flowCellSize);
+            }
+        });
+        onKey(KeyCodes.SPACE, () => this.scene.restart(this.selection));
+        onKey(KeyCodes.P, () =>
+            this.scene.restart({
+                scenario: this.selection.scenario,
+                plan: (this.selection.plan + 1) % this.plans().length,
+            }),
+        );
+        onKey(KeyCodes.S, () => {
+            this.speedIndex = (this.speedIndex + 1) % SPEEDS.length;
+        });
+
+        SCENARIOS.slice(0, 9).forEach((_, index) => {
+            onKey(KeyCodes.ONE + index, () => this.scene.restart({scenario: index, plan: 0}));
+        });
+    }
+
+    private createTexts(): void {
         this.statusText = this.add
             .text(12, 10, "", {fontFamily: "monospace", fontSize: "16px", color: "#ffffff"})
             .setDepth(20);
+
         // Am unteren Rand verankert und umbrochen, damit lange Texte im Bild bleiben.
         this.add
             .text(12, this.level.worldHeight - 8, this.scenarioMenu(), {
@@ -77,139 +120,19 @@ export class CrowdScene extends Phaser.Scene {
             })
             .setOrigin(0, 1)
             .setDepth(20);
-
-        this.input.keyboard
-            ?.addKey(Phaser.Input.Keyboard.KeyCodes.R)
-            .on("down", () => {
-                this.showFlowDebug = !this.showFlowDebug;
-                this.drawFlowFieldDebug();
-            });
-
-        this.input.keyboard
-            ?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
-            .on("down", () => this.scene.restart({scenario: this.scenarioIndex, plan: this.planIndex}));
-
-        // P wechselt zum nächsten Plan des Szenarios (Startplan, ohne Maßnahmen, Beispiele).
-        this.input.keyboard
-            ?.addKey(Phaser.Input.Keyboard.KeyCodes.P)
-            .on("down", () =>
-                this.scene.restart({
-                    scenario: this.scenarioIndex,
-                    plan: (this.planIndex + 1) % this.plans().length,
-                }),
-            );
-
-        // S schaltet die Abspielgeschwindigkeit um: 1x, 2x, 4x.
-        this.input.keyboard
-            ?.addKey(Phaser.Input.Keyboard.KeyCodes.S)
-            .on("down", () => {
-                this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 4 : 1;
-            });
-
-        // Zifferntasten wechseln das Szenario.
-        SCENARIOS.forEach((_, index) => {
-            this.input.keyboard
-                ?.addKey(Phaser.Input.Keyboard.KeyCodes.ONE + index)
-                .on("down", () => this.scene.restart({scenario: index, plan: 0}));
-        });
-
     }
 
-    override update(_time: number, delta: number): void {
-
-        this.simulation.update((delta / 1000) * this.speed);
-
-        for (const agent of this.simulation.agents) {
-            const view = this.personViews.get(agent.id);
-
-            if (view) {
-                // Angekommene verschwinden, Abtransportierte bleiben ausgegraut liegen.
-                view.setVisible(!agent.arrived || agent.rescued);
-                view.setPosition(
-                    agent.position.x,
-                    agent.position.y,
-                );
-                if (agent.rescued) {
-                    view.setFillStyle(RESCUED_COLOR, RESCUED_ALPHA).setStrokeStyle();
-                    view.setDepth(-1);
-                } else {
-                    view.setFillStyle(agent.injured ? INJURED_COLOR : getDensityColor(agent.localDensity));
-                    this.drawInjuryRing(view, agent.injury, agent.injured);
-                }
-            }
-        }
-
-        this.updateStatus();
-    }
-
-    /** Schwarzer Ring, dessen Stärke mit der Verletzung wächst; Verletzte sind schwarz mit weißem Ring. */
-    private drawInjuryRing(
-        view: Phaser.GameObjects.Arc,
-        injury: number,
-        injured: boolean,
-    ): void {
-        if (injured) {
-            view.setStrokeStyle(2, 0xffffff, 1);
-        } else if (injury > 0.05) {
-            view.setStrokeStyle(1, INJURED_COLOR, injury);
-        } else if (view.isStroked) {
-            view.setStrokeStyle();
-        }
-    }
-
-    /** Zeile unten: Name und Beschreibung des Szenarios, dazu die Tasten zum Wechseln. */
+    /** Text unten: Szenarien zum Umschalten, Beschreibung des aktuellen, Plan. */
     private scenarioMenu(): string {
         const keys = SCENARIOS
             .map((scenario, index) =>
-                `${index === this.scenarioIndex ? "▶" : " "}${index + 1} ${scenario.level.name}`)
+                `${index === this.selection.scenario ? "▶" : " "}${index + 1} ${scenario.level.name}`)
             .join("   ");
 
         return (
             `${keys}\n${this.level.description}\n` +
-            `Plan: ${this.plans()[this.planIndex].name}   [P: nächster Plan]`
+            `Plan: ${this.plans()[this.selection.plan].name}   [P: nächster Plan]`
         );
-    }
-
-    /** Die wählbaren Pläne des aktuellen Szenarios: Startplan, ohne Maßnahmen und Beispiele. */
-    private plans(): readonly {readonly name: string; readonly plan: Plan}[] {
-        const scenario = SCENARIOS[this.scenarioIndex];
-
-        return [
-            {name: "Startplan", plan: scenario.plan},
-            {name: "Ohne Maßnahmen (Vergleichswert)", plan: planWithoutMeasures(scenario.level)},
-            ...(scenario.examples ?? []),
-        ];
-    }
-
-    /**
-     * Zeichnet jedes Schild als gelben Punkt mit einem Pfeil in Richtung des
-     * begehbaren Weges zum Eingang der Route (nicht in Luftlinie durch Wände).
-     */
-    private drawSigns(plan: Plan): void {
-        const graphics = this.add.graphics().setDepth(5);
-        const direction = {x: 1, y: 0};
-
-        for (const sign of plan.signs) {
-            if (!this.simulation.signDirection(sign, direction)) {
-                continue;
-            }
-
-            const tipX = sign.position.x + direction.x * 22;
-            const tipY = sign.position.y + direction.y * 22;
-
-            graphics.lineStyle(3, 0xffd60a, 1);
-            graphics.lineBetween(sign.position.x, sign.position.y, tipX, tipY);
-            graphics.fillStyle(0xffd60a, 1);
-            graphics.fillTriangle(
-                tipX + direction.x * 7,
-                tipY + direction.y * 7,
-                tipX - direction.y * 5,
-                tipY + direction.x * 5,
-                tipX + direction.y * 5,
-                tipY - direction.x * 5,
-            );
-            graphics.fillCircle(sign.position.x, sign.position.y, 5);
-        }
     }
 
     private updateStatus(): void {
@@ -217,155 +140,44 @@ export class CrowdScene extends Phaser.Scene {
 
         this.statusText.setText(
             `Evakuiert ${arrived}/${total}   Verletzt ${injured}   Zeit ${elapsed.toFixed(1)} s   ` +
-            `[S: Tempo ${this.speed}x   Leertaste: Neustart]`,
+            `[S: Tempo ${SPEEDS[this.speedIndex]}x   Leertaste: Neustart]`,
         );
 
-        if (this.simulation.finished && !this.resultText) {
+        if (this.simulation.finished && !this.resultShown) {
+            this.resultShown = true;
             this.showResult();
         }
     }
 
     private showResult(): void {
-        const stats = this.simulation.stats;
-        const cost = calculateCost(stats, this.level.scoring);
-        const reference = referenceCost(this.level.scoring);
-        const difference = cost.total - reference.total;
-        const sign = difference > 0 ? "+" : "";
-
-        const lines = [
-            stats.arrived + stats.injured < stats.total
-                ? "Zeit abgelaufen"
-                : stats.injured === 0
-                    ? "Alle evakuiert, niemand verletzt"
-                    : "Alle Gehfähigen sind draußen, es gab Verletzte",
-            "",
-            `Evakuiert:   ${stats.arrived}/${stats.total}`,
-            `Verletzte:   ${stats.injured}`,
-            `Dauer:       ${stats.elapsed.toFixed(1)} s`,
-            `Gedränge:    ${(stats.crowdedSeconds / 60).toFixed(0)} Personen-Min. über ${this.level.scoring.crowdingThreshold} P/m²`,
-            `Spitze:      ${stats.peakDensity.toFixed(1)} Pers./m² (${describeDensity(stats.peakDensity)})`,
-            "",
-            `Kosten:      ${cost.total.toFixed(0)}  = Dauer ${cost.duration.toFixed(0)} + Verletzte ${cost.injuries.toFixed(0)} + Gedränge ${cost.crowding.toFixed(0)}`,
-            `Ohne Maßnahmen: ${reference.total.toFixed(0)}  (${sign}${difference.toFixed(0)}, niedriger ist besser)`,
-            "",
-            "Leertaste: Neustart",
-        ];
-
-        this.resultText = this.add
-            .text(this.level.worldWidth / 2, this.level.worldHeight / 2, lines.join("\n"), {
-                fontFamily: "monospace",
-                fontSize: "22px",
-                color: "#ffffff",
-                backgroundColor: "#101820e6",
-                padding: {x: 24, y: 18},
-                align: "left",
-            })
+        this.add
+            .text(
+                this.level.worldWidth / 2,
+                this.level.worldHeight / 2,
+                resultText(this.simulation.stats, this.level.scoring),
+                {
+                    fontFamily: "monospace",
+                    fontSize: "22px",
+                    color: "#ffffff",
+                    backgroundColor: "#101820e6",
+                    padding: {x: 24, y: 18},
+                    align: "left",
+                },
+            )
             .setOrigin(0.5)
             .setDepth(30);
     }
-
-    private drawGrid(): void {
-
-        const grid = this.add.graphics();
-        grid.lineStyle(1, 0x293548, 1);
-
-        for (let x = 0; x <= this.level.worldWidth; x += 40) {
-            grid.lineBetween(x, 0, x, this.level.worldHeight);
-        }
-
-        for (let y = 0; y <= this.level.worldHeight; y += 40) {
-            grid.lineBetween(0, y, this.level.worldWidth, y);
-        }
-
-    }
-
-
-    private drawObstacles(): void {
-        const wallGraphics = this.add.graphics();
-
-        for (const obstacle of this.level.obstacles) {
-            switch (obstacle.type) {
-                case "circle":
-                    this.add.circle(
-                        obstacle.center.x,
-                        obstacle.center.y,
-                        obstacle.radius,
-                        0x45556b,
-                    ).setStrokeStyle(3, 0x9aacc7);
-                    break;
-
-                case "rectangle":
-                    this.add.rectangle(
-                        obstacle.position.x + obstacle.width / 2,
-                        obstacle.position.y + obstacle.height / 2,
-                        obstacle.width,
-                        obstacle.height,
-                        0x45556b,
-                    ).setStrokeStyle(3, 0x9aacc7);
-                    break;
-
-                case "wall":
-                    wallGraphics.lineStyle(
-                        obstacle.thickness,
-                        0x45556b,
-                        1,
-                    );
-                    wallGraphics.lineBetween(
-                        obstacle.start.x,
-                        obstacle.start.y,
-                        obstacle.end.x,
-                        obstacle.end.y,
-                    );
-                    break;
-            }
-        }
-    }
-
-
-    private createPeople(): void {
-        for (const agent of this.simulation.agents) {
-            const person = this.add.circle(
-                agent.position.x,
-                agent.position.y,
-                agent.radius,
-                getDensityColor(agent.localDensity)
-            );
-
-            this.personViews.set(agent.id, person);
-        }
-    }
-
-    /** Zeigt pro Rasterzelle die Laufrichtung des Flow-Fields. */
-    private drawFlowFieldDebug(): void {
-        this.flowGraphics.clear();
-
-        if (!this.showFlowDebug) {
-            return;
-        }
-
-        const length = this.level.simulation.flowCellSize * 0.7;
-
-        this.flowGraphics.lineStyle(1, 0x00d5ff, 0.7);
-
-        this.simulation.flowField.forEachDirection((x, y, dx, dy) => {
-            this.flowGraphics.lineBetween(
-                x - dx * length / 2,
-                y - dy * length / 2,
-                x + dx * length / 2,
-                y + dy * length / 2,
-            );
-        });
-    }
-
 }
 
-/**
- * Einordnung der Personendichte (angelehnt an die Fruin-Stufen für
- * Fußgängerströme; ab etwa 5 Personen/m² besteht Quetschgefahr).
- */
-function describeDensity(personsPerSquareMeter: number): string {
-    if (personsPerSquareMeter < 2) return "locker";
-    if (personsPerSquareMeter < 4) return "dicht";
-    if (personsPerSquareMeter < 5.5) return "Gedränge";
-    return "kritisch";
+/** Startauswahl aus der URL; ungültige oder fehlende Werte fallen auf das erste Szenario und den Startplan zurück. */
+function selectionFromUrl(): Selection {
+    const query = new URLSearchParams(window.location.search);
+    const scenario = validIndex(Number(query.get("scenario") ?? 1) - 1, SCENARIOS.length);
+    const plan = validIndex(Number(query.get("plan") ?? 0), scenarioPlans(SCENARIOS[scenario]).length);
+
+    return {scenario, plan};
+}
+
+function validIndex(value: number, length: number): number {
+    return Number.isInteger(value) && value >= 0 && value < length ? value : 0;
 }

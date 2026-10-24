@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": [".", "../src/simulation", "../src/game/Scenario.ts", "../src/game/scenarios.ts", "../src/game/levels"]
+}

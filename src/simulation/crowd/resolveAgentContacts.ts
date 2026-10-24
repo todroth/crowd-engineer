@@ -1,5 +1,5 @@
 import type {Agent} from "../Agent.ts";
-import type {SpatialGrid} from "../../spatial/SpatialGrid.ts";
+import type {SpatialGrid} from "../spatial/SpatialGrid.ts";
 import type {Collider} from "../geometry/Collider.ts";
 import {moveWithCollisions} from "../collision/moveWithCollisions.ts";
 

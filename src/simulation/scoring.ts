@@ -1,4 +1,4 @@
-import type {RunStats} from "./Simulation.ts";
+import type {RunStats} from "./RunStats.ts";
 
 export interface ScoringConfig {
     /** Wie viele Sekunden eine verletzte (oder nicht herausgekommene) Person kostet. */

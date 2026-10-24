@@ -2,7 +2,7 @@
 import {availableParallelism} from "node:os";
 import {Worker} from "node:worker_threads";
 import type {Plan} from "../../src/simulation/Plan.ts";
-import type {RunStats} from "../../src/simulation/Simulation.ts";
+import type {RunStats} from "../../src/simulation/RunStats.ts";
 import type {CostBreakdown} from "../../src/simulation/scoring.ts";
 
 export interface Job {

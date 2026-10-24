@@ -1,9 +1,9 @@
-/**
- * Die Entscheidungen des Spielers für einen Durchlauf. Das Level beschreibt
- * die Welt, der Plan, was man darin tut. Später kommen Schilder, Ordner usw. dazu.
- */
 import type {Sign} from "./Sign.ts";
 
+/**
+ * Die Entscheidungen des Spielers für einen Durchlauf. Das Level beschreibt
+ * die Welt, der Plan, was man darin tut. Später kommen Ordner usw. dazu.
+ */
 export interface Plan {
     /** Aufgestellte Wegweiser. */
     readonly signs: readonly Sign[];

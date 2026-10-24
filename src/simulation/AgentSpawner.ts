@@ -1,8 +1,34 @@
 import type {Agent} from "./Agent.ts";
 import type {Random} from "./random.ts";
 import type {Rect} from "./geometry/Rect.ts";
+import type {Vector2} from "./Vector2.ts";
 
 const AGENT_RADIUS = 4;
+
+/** Ist an (x, y) Platz für einen Agenten mit diesem Radius? */
+export type SpawnCheck = (x: number, y: number, radius: number) => boolean;
+
+/** Veränderlicher Zustand eines Agenten, wie er beim (Wieder-)Eintreten ist. */
+function freshState(): Omit<Agent, "id" | "desiredSpeed" | "radius"> {
+    return {
+        position: {x: 0, y: 0},
+        velocity: {x: 0, y: 0},
+        localDensity: 0,
+        arrived: false,
+        injury: 0,
+        injured: false,
+        injuredFor: 0,
+        rescued: false,
+        sector: -1,
+        releaseTime: 0,
+        panic: 0,
+        pressure: 0,
+        routeChoice: -1,
+        signMemory: [],
+        committed: false,
+        decisionTimer: 0,
+    };
+}
 
 /** Erzeugt Agenten und platziert sie zufällig auf freien Plätzen. */
 export class AgentSpawner {
@@ -25,29 +51,14 @@ export class AgentSpawner {
         this.random = random;
     }
 
-    createAgent(isFree: (x: number, y: number, radius: number) => boolean): Agent {
+    createAgent(isFree: SpawnCheck): Agent {
         const agent: Agent = {
             id: this.nextId++,
-            position: {x: 0, y: 0},
-            velocity: {x: 0, y: 0},
             desiredSpeed:
                 this.speedRange.min +
                 this.random() * (this.speedRange.max - this.speedRange.min),
             radius: AGENT_RADIUS,
-            localDensity: 0,
-            sector: -1,
-            releaseTime: 0,
-            arrived: false,
-            injury: 0,
-            injured: false,
-            injuredFor: 0,
-            rescued: false,
-            panic: 0,
-            pressure: 0,
-            signMemory: [],
-            routeChoice: -1,
-            committed: false,
-            decisionTimer: 0,
+            ...freshState(),
         };
 
         this.place(agent, this.spawnArea, isFree);
@@ -56,34 +67,14 @@ export class AgentSpawner {
     }
 
     /** Lässt den Agenten wieder von außen in die Welt einlaufen. */
-    respawn(
-        agent: Agent,
-        isFree: (x: number, y: number, radius: number) => boolean,
-    ): void {
+    respawn(agent: Agent, isFree: SpawnCheck): void {
         this.place(agent, this.entryArea, isFree);
     }
 
-    private place(
-        agent: Agent,
-        area: Rect,
-        isFree: (x: number, y: number, radius: number) => boolean,
-    ): void {
+    /** Setzt den Agenten auf einen freien Platz im Bereich, mit frischem Zustand. */
+    private place(agent: Agent, area: Rect, isFree: SpawnCheck): void {
+        Object.assign(agent, freshState());
         agent.position = this.findFreePosition(area, agent.radius, isFree);
-        agent.velocity = {x: 0, y: 0};
-        agent.localDensity = 0;
-        agent.arrived = false;
-        agent.sector = -1;
-        agent.releaseTime = 0;
-        agent.injury = 0;
-        agent.injured = false;
-        agent.injuredFor = 0;
-        agent.rescued = false;
-        agent.panic = 0;
-        agent.pressure = 0;
-        agent.signMemory = [];
-        agent.routeChoice = -1;
-        agent.committed = false;
-        agent.decisionTimer = 0;
     }
 
     /**
@@ -94,8 +85,8 @@ export class AgentSpawner {
     private findFreePosition(
         area: Rect,
         radius: number,
-        isFree: (x: number, y: number, radius: number) => boolean,
-    ) {
+        isFree: SpawnCheck,
+    ): Vector2 {
         const attempts = 30;
         let point = this.randomPointIn(area);
 
@@ -106,7 +97,7 @@ export class AgentSpawner {
         return point;
     }
 
-    private randomPointIn(area: Rect) {
+    private randomPointIn(area: Rect): Vector2 {
         return {
             x: area.x + this.random() * area.width,
             y: area.y + this.random() * area.height,

@@ -3,7 +3,7 @@ import {Simulation} from "../simulation/Simulation.ts";
 import {DEFAULT_LEVEL} from "./defaultLevel.ts";
 import {getDensityColor} from "./getDensityColor.ts";
 
-/** Farbe für Verletzte (Füllung) und den Gefährdungsring. */
+/** Farbe für Verletzte (Füllung) und den Gefährdungsring; Verletzte haben zusätzlich einen weißen Ring. */
 const INJURED_COLOR = 0x000000;
 
 export class CrowdScene extends Phaser.Scene {
@@ -72,14 +72,14 @@ export class CrowdScene extends Phaser.Scene {
         this.updateStatus();
     }
 
-    /** Schwarzer Ring, dessen Stärke mit der Verletzung wächst; Verletzte voll und dick. */
+    /** Schwarzer Ring, dessen Stärke mit der Verletzung wächst; Verletzte sind schwarz mit weißem Ring. */
     private drawInjuryRing(
         view: Phaser.GameObjects.Arc,
         injury: number,
         injured: boolean,
     ): void {
         if (injured) {
-            view.setStrokeStyle(2, INJURED_COLOR, 1);
+            view.setStrokeStyle(2, 0xffffff, 1);
         } else if (injury > 0.05) {
             view.setStrokeStyle(1, INJURED_COLOR, injury);
         } else if (view.isStroked) {

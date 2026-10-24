@@ -38,6 +38,7 @@ export interface SimulationConfig {
     /** Bis zu diesem Abstand vor Hindernissen werden Wege gemieden (Pixel). */
     readonly wallAvoidanceDistance: number;
 
+    readonly slowdown: SlowdownConfig;
     readonly crush: CrushConfig;
     readonly injury: InjuryConfig;
     readonly wayfinding: WayfindingConfig;
@@ -108,4 +109,18 @@ export interface InjuryConfig {
     readonly rate: number;
     /** Erholung pro Sekunde unterhalb der Schwelle. */
     readonly recovery: number;
+}
+
+/**
+ * Dichteabhängiges Tempo (Fundamentaldiagramm nach Weidmann): In einer dichten
+ * Menge kommt man kaum noch voran, auch wenn man gern schneller wäre.
+ * Panische Agenten drängen sich darüber hinweg, für sie gilt es abgeschwächt.
+ */
+export interface SlowdownConfig {
+    /** Wie stark die Dichte bremst: 0 = gar nicht, 1 = volles Fundamentaldiagramm. */
+    readonly strength: number;
+    /** Personendichte (Personen/m²), bei der man nahezu zum Stehen kommt. */
+    readonly jamDensity: number;
+    /** Wie schnell das Tempo mit der Dichte fällt (Weidmann: 1,913). */
+    readonly steepness: number;
 }

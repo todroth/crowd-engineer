@@ -30,6 +30,8 @@ const OBSTRUCTION_REFRESH_INTERVAL = 3;
 
 /** Steering darf die Wunschgeschwindigkeit höchstens so weit überschreiten. */
 const MAX_SPEED_FACTOR = 1.5;
+/** Selbst im dichtesten Gedränge bleibt etwas Tempo (Anteil), damit niemand ganz festfriert. */
+const MIN_SLOWDOWN_FACTOR = 0.05;
 /** Bezugstempo (Pixel/s), mit dem blockierter Schub in Druck umgerechnet wird. */
 const NORMAL_SPEED = 50;
 const CONTACT_ITERATIONS = 3;
@@ -339,8 +341,11 @@ export class Simulation {
         );
         this.wayfinder.direction(agent, this.direction);
 
-        // Panik macht schneller und lässt weniger Abstand.
-        const speed = agent.desiredSpeed * (1 + config.panic.speedBoost * agent.panic);
+        // Panik macht schneller und lässt weniger Abstand; dichte Menge bremst.
+        const speed =
+            agent.desiredSpeed *
+            (1 + config.panic.speedBoost * agent.panic) *
+            this.crowdSlowdown(agent, personsPerSquareMeter);
         const separation =
             config.separationStrength *
             (1 - config.panic.separationReduction * agent.panic);
@@ -374,6 +379,28 @@ export class Simulation {
 
         this.nextVelocityX[agent.id] = agent.velocity.x + changeX * scale;
         this.nextVelocityY[agent.id] = agent.velocity.y + changeY * scale;
+    }
+
+    /**
+     * Tempofaktor durch die Dichte (Weidmann): v/v0 = 1 - exp(-γ (1/ρ - 1/ρmax)).
+     * Wirkt voll auf ruhige Agenten und schwächt sich mit der Panik ab.
+     */
+    private crowdSlowdown(agent: Agent, personsPerSquareMeter: number): number {
+        const {strength, jamDensity, steepness} = this.level.simulation.slowdown;
+
+        if (strength === 0 || personsPerSquareMeter <= 0.01) {
+            return 1;
+        }
+
+        const factor = Math.min(
+            1,
+            Math.max(
+                MIN_SLOWDOWN_FACTOR,
+                1 - Math.exp(-steepness * (1 / personsPerSquareMeter - 1 / jamDensity)),
+            ),
+        );
+
+        return 1 - strength * (1 - factor) * (1 - agent.panic);
     }
 
     /** Beweglichkeit (minimumMobility..1): sinkt unter Druck, siehe `CrushConfig`. */

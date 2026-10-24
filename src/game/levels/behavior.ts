@@ -36,11 +36,18 @@ const BASE = {
         switchHysteresis: 0.15,
         knowledgeError: 0.15,
     },
-} satisfies Omit<SimulationConfig, "panic">;
+} satisfies Omit<SimulationConfig, "panic" | "slowdown">;
 
-/** Notfall: Gedränge löst Panik aus, die ansteckt, schneller und rücksichtsloser macht. */
+/** Fundamentaldiagramm nach Weidmann: bei etwa 5,4 Personen/m² steht die Menge. */
+const WEIDMANN = {jamDensity: 5.4, steepness: 1.913};
+
+/**
+ * Notfall: Gedränge löst Panik aus, die ansteckt, schneller und rücksichtsloser macht.
+ * Die Dichte bremst hier nicht zusätzlich, die Menge drängt sich über sie hinweg.
+ */
 export const PANIC_BEHAVIOR: SimulationConfig = {
     ...BASE,
+    slowdown: {...WEIDMANN, strength: 0},
     panic: {
         onsetDensity: 6,
         fullDensity: 14,
@@ -52,9 +59,10 @@ export const PANIC_BEHAVIOR: SimulationConfig = {
     },
 };
 
-/** Geordnete Räumung: Es gibt keine Panik, die Menge geht gleichmäßig und hält Abstand. */
+/** Geordnete Räumung: Es gibt keine Panik, die Menge geht und wird in der Dichte langsamer. */
 export const CALM_BEHAVIOR: SimulationConfig = {
     ...BASE,
+    slowdown: {...WEIDMANN, strength: 1},
     panic: {
         // Schwellen so hoch, dass keine Panik entsteht.
         onsetDensity: 50,

@@ -239,7 +239,9 @@ export class Simulation {
             agent.injuredFor += deltaSeconds;
 
             if (agent.injuredFor >= this.level.simulation.rescueTime) {
+                // Verlässt die Simulation, bleibt für die Anzeige aber liegen.
                 agent.arrived = true;
+                agent.rescued = true;
             }
         }
     }

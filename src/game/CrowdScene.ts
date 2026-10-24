@@ -6,6 +6,10 @@ import {getDensityColor} from "./getDensityColor.ts";
 /** Farbe für Verletzte (Füllung) und den Gefährdungsring; Verletzte haben zusätzlich einen weißen Ring. */
 const INJURED_COLOR = 0x000000;
 
+/** Abtransportierte Verletzte: blass graurot, damit man sie sieht, sie aber nicht auffallen. */
+const RESCUED_COLOR = 0x7a5a5f;
+const RESCUED_ALPHA = 0.45;
+
 export class CrowdScene extends Phaser.Scene {
     private simulation!: Simulation;
 
@@ -59,13 +63,19 @@ export class CrowdScene extends Phaser.Scene {
             const view = this.personViews.get(agent.id);
 
             if (view) {
-                view.setVisible(!agent.arrived);
+                // Angekommene verschwinden, Abtransportierte bleiben ausgegraut liegen.
+                view.setVisible(!agent.arrived || agent.rescued);
                 view.setPosition(
                     agent.position.x,
                     agent.position.y,
                 );
-                view.setFillStyle(agent.injured ? INJURED_COLOR : getDensityColor(agent.localDensity));
-                this.drawInjuryRing(view, agent.injury, agent.injured);
+                if (agent.rescued) {
+                    view.setFillStyle(RESCUED_COLOR, RESCUED_ALPHA).setStrokeStyle();
+                    view.setDepth(-1);
+                } else {
+                    view.setFillStyle(agent.injured ? INJURED_COLOR : getDensityColor(agent.localDensity));
+                    this.drawInjuryRing(view, agent.injury, agent.injured);
+                }
             }
         }
 

@@ -22,6 +22,8 @@ export interface Agent {
     injured: boolean;
     /** Seit wann der Agent verletzt am Boden liegt (Sekunden). */
     injuredFor: number;
+    /** Wurde abtransportiert: liegt noch sichtbar da, beeinflusst die Simulation aber nicht mehr. */
+    rescued: boolean;
 
     /** 0 = ruhig, 1 = panisch. */
     panic: number;

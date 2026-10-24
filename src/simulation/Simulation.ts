@@ -1,7 +1,7 @@
 import type {Agent} from "./Agent.ts";
 import {AgentSpawner} from "./AgentSpawner.ts";
 import type {Level} from "./Level.ts";
-import type {Plan} from "./Plan.ts";
+import {type Plan, planObstacles} from "./Plan.ts";
 import type {RunStats} from "./RunStats.ts";
 import type {Vector2} from "./Vector2.ts";
 import {createRandom} from "./random.ts";
@@ -95,7 +95,7 @@ export class Simulation {
             level.pixelsPerMeter,
             config.densityRadius,
         );
-        this.colliders = createColliders(level.obstacles);
+        this.colliders = createColliders([...level.obstacles, ...planObstacles(plan)]);
         this.neighborRadius = Math.max(config.separationRadius, config.densityRadius);
         this.grid = new SpatialGrid(
             level.worldWidth,
@@ -169,6 +169,17 @@ export class Simulation {
             position.y >= 0 && position.y <= worldHeight &&
             pointClearance(position, this.colliders) >= radius
         );
+    }
+
+    /**
+     * Wie viele Agenten können keinen Ausgang mehr erreichen (etwa weil ein
+     * Gitter sie einsperrt)? Gezählt wird, wer weder das Hauptfeld noch den
+     * Eingang eines Weges erreichen kann.
+     */
+    unreachableCount(): number {
+        return this.agents.filter(
+            (agent) => !agent.arrived && !this.wayfinder.canReachGoal(agent.position),
+        ).length;
     }
 
     /** Lässt die Simulation um `deltaSeconds` Echtzeit weiterlaufen (in festen Schritten). */

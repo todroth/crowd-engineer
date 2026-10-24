@@ -81,7 +81,7 @@ const level: Level = {
 /** Wege: 0 = Tür zum Hauptausgang, 1 = Notausgang. */
 export const NACHTCLUB: Scenario = {
     level,
-    inventory: {marshals: 2},
+    inventory: {marshals: 2, barrierMeters: 20},
     // Zwei Schilder zum unbekannten Notausgang verteilen die Menge.
     plan: createPlan({
         releaseDelays: [],

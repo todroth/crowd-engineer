@@ -1,3 +1,5 @@
+import type {Barrier} from "../simulation/Barrier.ts";
+import {distanceToSegment, distanceBetween} from "../simulation/geometry/segments.ts";
 import type {Marshal} from "../simulation/Marshal.ts";
 import {createPlan, type Plan} from "../simulation/Plan.ts";
 import type {Sign} from "../simulation/Sign.ts";
@@ -11,8 +13,13 @@ const MIN_DISTANCE = 20;
 /** Überzeugungskraft der Schilder, die der Spieler aufstellt. */
 const SIGN_STRENGTH = 0.9;
 
+/** Wie weit man neben ein Gitter klicken darf, um es zu treffen (Pixel). */
+const BARRIER_PICK_RADIUS = 8;
+/** Kürzeste Länge, die ein neu gezogenes Gitter haben muss (Meter); kürzere werden verworfen. */
+const MIN_BARRIER_METERS = 1;
+
 /** Was man platzieren kann. */
-export type Tool = "sign" | "marshal";
+export type Tool = "sign" | "marshal" | "barrier";
 
 /** Ein Element des Plans: Art und Index in der jeweiligen Liste. */
 export interface Selected {
@@ -39,6 +46,9 @@ export interface PlanWorld {
     routeDistance(route: number, position: Vector2): number;
 }
 
+/** Was beim Ziehen eines Gitters bewegt wird. */
+type DragPart = "start" | "end" | "whole";
+
 /** Schild und Ordner haben beide Ort und Weg; so lassen sie sich gemeinsam behandeln. */
 interface Item {
     readonly position: Vector2;
@@ -59,15 +69,20 @@ export class PlanEditor {
 
     readonly inventory: Inventory;
     private readonly routeCount: number;
+    private readonly pixelsPerMeter: number;
     private signs: Sign[] = [];
     private marshals: Marshal[] = [];
+    private barriers: Barrier[] = [];
     private releaseDelays: readonly number[] = [];
     private dragging: Selected | null = null;
+    private dragPart: DragPart = "whole";
+    private dragLast: Vector2 = {x: 0, y: 0};
     private moved = false;
 
-    constructor(inventory: Inventory, routeCount: number, plan: Plan = createPlan()) {
+    constructor(inventory: Inventory, routeCount: number, pixelsPerMeter: number, plan: Plan = createPlan()) {
         this.inventory = inventory;
         this.routeCount = routeCount;
+        this.pixelsPerMeter = pixelsPerMeter;
         this.load(plan);
     }
 
@@ -75,6 +90,7 @@ export class PlanEditor {
         return createPlan({
             signs: [...this.signs],
             marshals: [...this.marshals],
+            barriers: [...this.barriers],
             releaseDelays: this.releaseDelays,
         });
     }
@@ -83,6 +99,7 @@ export class PlanEditor {
     load(plan: Plan): void {
         this.signs = [...plan.signs];
         this.marshals = [...plan.marshals];
+        this.barriers = [...plan.barriers];
         this.releaseDelays = plan.releaseDelays;
         this.selected = null;
         this.dragging = null;
@@ -90,30 +107,49 @@ export class PlanEditor {
     }
 
     clear(): void {
-        this.edited ||= this.signs.length + this.marshals.length > 0;
+        this.edited ||= this.signs.length + this.marshals.length + this.barriers.length > 0;
         this.signs = [];
         this.marshals = [];
+        this.barriers = [];
         this.selected = null;
     }
 
-    /** Wie viele Elemente dieser Art schon platziert sind. */
+    /** Wie viel schon platziert ist: Stück bei Schildern und Ordnern, Meter bei Gittern. */
     used(kind: Tool): number {
-        return this.itemsOf(kind).length;
+        return kind === "barrier"
+            ? this.barriers.reduce((sum, barrier) => sum + this.lengthInMeters(barrier), 0)
+            : this.itemsOf(kind).length;
     }
 
+    /** Der Vorrat dieser Art (Stück, bei Gittern Meter). */
     total(kind: Tool): number {
-        return kind === "sign" ? this.inventory.signs : this.inventory.marshals;
+        switch (kind) {
+            case "sign": return this.inventory.signs;
+            case "marshal": return this.inventory.marshals;
+            case "barrier": return this.inventory.barrierMeters;
+        }
     }
 
-    /** Wie viele Elemente dieser Art noch frei sind (nie negativ). */
+    /** Was von dieser Art noch frei ist (nie negativ). */
     remaining(kind: Tool): number {
         return Math.max(0, this.total(kind) - this.used(kind));
     }
 
-    /** Art und Weg des ausgewählten Elements (oder `null`). */
-    get selectedItem(): {readonly kind: Tool; readonly route: number} | null {
-        return this.selected
-            ? {kind: this.selected.kind, route: this.itemsOf(this.selected.kind)[this.selected.index].route}
+    /** Art und Weg des ausgewählten Elements (Gitter haben keinen Weg), oder `null`. */
+    get selectedItem(): {readonly kind: Tool; readonly route?: number} | null {
+        if (!this.selected) {
+            return null;
+        }
+
+        const {kind, index} = this.selected;
+
+        return kind === "barrier" ? {kind} : {kind, route: this.itemsOf(kind)[index].route};
+    }
+
+    /** Länge des ausgewählten Gitters in Metern (sonst `null`). */
+    get selectedBarrierMeters(): number | null {
+        return this.selected?.kind === "barrier"
+            ? this.lengthInMeters(this.barriers[this.selected.index])
             : null;
     }
 
@@ -122,10 +158,12 @@ export class PlanEditor {
         const hit = this.itemAt(position);
 
         this.moved = false;
+        this.dragLast = position;
 
         if (hit) {
             this.selected = hit;
             this.dragging = hit;
+            this.dragPart = hit.kind === "barrier" ? this.barrierPart(this.barriers[hit.index], position) : "whole";
             return "preview";
         }
 
@@ -133,8 +171,10 @@ export class PlanEditor {
 
         if (this.canPlace(this.tool, position, world)) {
             this.place(this.tool, position, this.nearestRoute(position, world));
-            this.selected = {kind: this.tool, index: this.used(this.tool) - 1};
+            this.selected = {kind: this.tool, index: this.itemCount(this.tool) - 1};
             this.dragging = this.selected;
+            // Ein neues Gitter wird aufgezogen: Der Endpunkt folgt dem Zeiger.
+            this.dragPart = "end";
             this.moved = true;
             this.edited = true;
             return "preview";
@@ -144,7 +184,15 @@ export class PlanEditor {
     }
 
     pointerMove(position: Vector2, world: PlanWorld): Change {
-        if (!this.dragging || !world.isWalkable(position)) {
+        if (!this.dragging) {
+            return "none";
+        }
+
+        if (this.dragging.kind === "barrier") {
+            return this.dragBarrier(this.dragging.index, position, world);
+        }
+
+        if (!world.isWalkable(position)) {
             return "none";
         }
 
@@ -155,15 +203,28 @@ export class PlanEditor {
     }
 
     pointerUp(): Change {
-        const wasMoved = this.dragging !== null && this.moved;
+        const dragged = this.dragging;
+        const wasMoved = dragged !== null && this.moved;
 
         this.dragging = null;
+
+        // Ein zu kurz gezogenes Gitter zählt nicht.
+        if (dragged?.kind === "barrier") {
+            const barrier = this.barriers[dragged.index];
+
+            if (barrier && this.lengthInMeters(barrier) < MIN_BARRIER_METERS) {
+                this.barriers.splice(dragged.index, 1);
+                this.selected = null;
+                return "preview";
+            }
+        }
+
         return wasMoved ? "commit" : "none";
     }
 
-    /** Stellt das ausgewählte Element auf einen anderen Weg. */
+    /** Stellt das ausgewählte Schild oder den Ordner auf einen anderen Weg. */
     setRoute(route: number): Change {
-        if (!this.selected || route < 0 || route >= this.routeCount) {
+        if (!this.selected || this.selected.kind === "barrier" || route < 0 || route >= this.routeCount) {
             return "none";
         }
 
@@ -177,7 +238,12 @@ export class PlanEditor {
             return "none";
         }
 
-        this.itemsOf(this.selected.kind).splice(this.selected.index, 1);
+        if (this.selected.kind === "barrier") {
+            this.barriers.splice(this.selected.index, 1);
+        } else {
+            this.itemsOf(this.selected.kind).splice(this.selected.index, 1);
+        }
+
         this.selected = null;
         this.edited = true;
         return "commit";
@@ -195,28 +261,38 @@ export class PlanEditor {
         return this.removeSelected();
     }
 
-    /** Das Element des gewählten Werkzeugs, das ein Klick hier aufstellen würde (für die Vorschau), sonst `null`. */
+    /** Das Schild oder der Ordner, den ein Klick hier aufstellen würde (für die Vorschau), sonst `null`. */
     ghost(position: Vector2, world: PlanWorld): Placement | null {
-        if (this.itemAt(position) || !this.canPlace(this.tool, position, world)) {
+        if (this.tool === "barrier" || this.itemAt(position) || !this.canPlace(this.tool, position, world)) {
             return null;
         }
 
         return {kind: this.tool, position, route: this.nearestRoute(position, world)};
     }
 
-    /** Dürfte an dieser Stelle ein neues Element dieser Art stehen? */
+    /** Dürfte an dieser Stelle ein neues Element dieser Art beginnen? */
     canPlace(kind: Tool, position: Vector2, world: PlanWorld): boolean {
+        if (this.remaining(kind) <= 0 || !world.isWalkable(position)) {
+            return false;
+        }
+
+        if (kind === "barrier") {
+            return true;
+        }
+
         return (
-            this.remaining(kind) > 0 &&
             this.routeCount > 0 &&
-            world.isWalkable(position) &&
             this.itemsOf(kind).every((item) => distance(item.position, position) >= MIN_DISTANCE)
         );
     }
 
-    /** Die Liste der Elemente einer Art (veränderbar). */
+    /** Schilder oder Ordner (Gitter haben keinen Weg und sind eine eigene Liste). */
     private itemsOf(kind: Tool): Item[] {
-        return kind === "sign" ? this.signs : this.marshals;
+        return kind === "sign" ? this.signs : kind === "marshal" ? this.marshals : [];
+    }
+
+    private itemCount(kind: Tool): number {
+        return kind === "barrier" ? this.barriers.length : this.itemsOf(kind).length;
     }
 
     private place(kind: Tool, position: Vector2, route: number): void {
@@ -224,17 +300,71 @@ export class PlanEditor {
 
         if (kind === "sign") {
             this.signs.push({position: at, route, strength: SIGN_STRENGTH});
-        } else {
+        } else if (kind === "marshal") {
             this.marshals.push({position: at, route});
+        } else {
+            this.barriers.push({start: at, end: at});
         }
     }
 
-    /** Ändert Ort oder Weg eines Elements; alles andere (etwa die Stärke) bleibt. */
+    /** Ändert Ort oder Weg eines Schildes oder Ordners; alles andere (etwa die Stärke) bleibt. */
     private replace(selected: Selected, patch: Partial<Item>): void {
         const items = this.itemsOf(selected.kind);
 
         items[selected.index] = {...items[selected.index], ...patch};
     }
+
+    // --- Gitter ---------------------------------------------------------------
+
+    private lengthInMeters(barrier: Barrier): number {
+        return distanceBetween(barrier.start, barrier.end) / this.pixelsPerMeter;
+    }
+
+    /** Welchen Teil eines Gitters greift der Klick: einen Endpunkt oder die Mitte? */
+    private barrierPart(barrier: Barrier, position: Vector2): DragPart {
+        if (distance(barrier.start, position) <= PICK_RADIUS) return "start";
+        if (distance(barrier.end, position) <= PICK_RADIUS) return "end";
+        return "whole";
+    }
+
+    /** Zieht an einem Gitter: ein Endpunkt folgt dem Zeiger (Länge begrenzt durch den Vorrat), oder das ganze Gitter verschiebt sich. */
+    private dragBarrier(index: number, position: Vector2, world: PlanWorld): Change {
+        const barrier = this.barriers[index];
+
+        if (this.dragPart === "whole") {
+            const dx = position.x - this.dragLast.x;
+            const dy = position.y - this.dragLast.y;
+            const moved = {
+                start: {x: barrier.start.x + dx, y: barrier.start.y + dy},
+                end: {x: barrier.end.x + dx, y: barrier.end.y + dy},
+            };
+
+            if (!world.isWalkable(moved.start) || !world.isWalkable(moved.end)) {
+                return "none";
+            }
+
+            this.barriers[index] = moved;
+            this.dragLast = position;
+        } else {
+            const fixed = this.dragPart === "end" ? barrier.start : barrier.end;
+            const others = this.used("barrier") - this.lengthInMeters(barrier);
+            const maxPixels = Math.max(0, this.total("barrier") - others) * this.pixelsPerMeter;
+            const target = world.isWalkable(position) ? limitLength(fixed, position, maxPixels) : null;
+
+            if (!target) {
+                return "none";
+            }
+
+            this.barriers[index] =
+                this.dragPart === "end" ? {start: fixed, end: target} : {start: target, end: fixed};
+        }
+
+        this.moved = true;
+        this.edited = true;
+        return "preview";
+    }
+
+    // --- Suchen ---------------------------------------------------------------
 
     /** Weg, auf den ein neues Element an dieser Stelle zeigen würde: der nächstgelegene. */
     private nearestRoute(position: Vector2, world: PlanWorld): number {
@@ -249,7 +379,7 @@ export class PlanEditor {
         return best;
     }
 
-    /** Das Element unter `position` (das nächste im Pickradius; Ordner vor Schildern). */
+    /** Das Element unter `position` (Ordner vor Schildern vor Gittern; jeweils das nächste). */
     private itemAt(position: Vector2): Selected | null {
         let best: Selected | null = null;
         let bestDistance = PICK_RADIUS;
@@ -265,10 +395,35 @@ export class PlanEditor {
             });
         }
 
+        if (best) {
+            return best;
+        }
+
+        bestDistance = BARRIER_PICK_RADIUS;
+        this.barriers.forEach((barrier, index) => {
+            const d = distanceToSegment(position, barrier.start, barrier.end);
+
+            if (d <= bestDistance) {
+                best = {kind: "barrier", index};
+                bestDistance = d;
+            }
+        });
+
         return best;
     }
 }
 
 function distance(a: Vector2, b: Vector2): number {
     return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/** Der Punkt `to`, nötigenfalls auf der Strecke von `from` aus gekürzt auf `maxLength`. */
+function limitLength(from: Vector2, to: Vector2, maxLength: number): Vector2 {
+    const length = distance(from, to);
+
+    if (length <= maxLength) {
+        return {x: to.x, y: to.y};
+    }
+
+    return {x: from.x + ((to.x - from.x) * maxLength) / length, y: from.y + ((to.y - from.y) * maxLength) / length};
 }

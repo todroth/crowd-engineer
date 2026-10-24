@@ -47,7 +47,7 @@ src/
     spatial/             SpatialGrid für Nachbarschaftssuchen
   game/
     CrowdScene.ts        Phaser-Szene: Phasen Planung → Lauf → Ergebnis, Eingabe, Leisten
-    PlanEditor.ts        Schilder aufstellen, umstellen, entfernen, mit Budget (ohne Phaser)
+    PlanEditor.ts        Schilder, Ordner, Gitter platzieren, auswählen, ziehen, entfernen, mit Vorrat (ohne Phaser)
     bestScores.ts        Bestwerte je Szenario in localStorage
     Scenario.ts          Szenario = Level + Startplan + Beispielpläne + Schilderbudget; scenarioPlans()
     scenarios.ts         Liste aller Szenarien (Tasten 1–4)
@@ -59,7 +59,7 @@ scripts/                 headless Auswertung (siehe Befehle)
 
 ### Spielablauf
 
-1. **Planung:** Die Simulation ist gebaut, aber sie steht. Die Menge ist am Start zu sehen, die Eingänge der Wege sind mit A, B, C markiert. Ein Klick stellt ein Schild auf, das zunächst auf den nächstgelegenen Weg zeigt; eine Vorschau folgt dem Zeiger. Ein Klick auf ein vorhandenes Schild stellt es auf den nächsten Weg um, ein Rechtsklick entfernt es. C entfernt alle, P lädt die nächste Vorlage (Startplan, ohne Maßnahmen, Beispiele). Nach jeder Änderung wird die Simulation neu gebaut (etwa 20 ms).
+1. **Planung:** Die Simulation ist gebaut, aber sie steht. Die Menge ist am Start zu sehen, die Eingänge der Wege sind mit A, B, C markiert. Das Werkzeug (Taste 1–3 oder Seitenleiste) bestimmt, was ein Klick ins Freie tut: ein Schild oder Ordner wird aufgestellt und zeigt zunächst auf den nächstgelegenen Weg (Vorschau folgt dem Zeiger); ein Gitter wird mit gedrückter Maustaste aufgezogen. Ein Klick auf ein Element wählt es aus (Weg A/B/C per Knopf), Ziehen verschiebt es (bei Gittern die Enden einzeln oder das ganze), Rechtsklick oder Entf entfernt es. Vorlagen laden fertige Pläne. Nach jeder fertigen Änderung wird die Simulation neu gebaut (etwa 20 ms).
 2. **Lauf:** ENTER startet. S ändert das Tempo, F zeigt das Flow-Field.
 3. **Ergebnis:** Eine Tafel zeigt die Kosten gegen den Vergleichswert und den Bestwert (`bestScores.ts`). Die Leertaste führt zurück zur Planung mit demselben Plan.
 
@@ -85,6 +85,7 @@ Jedes `Level.routes[i]` ist ein Eingangsbereich. Je Weg gibt es ein Flow-Field z
 
 - **Schild** (`Sign`): macht einen Weg bekannt und senkt dessen Kosten leicht (`signInfluence`); Panik lässt es untergehen. Gesehene Schilder werden 30 s gemerkt (`Agent.signMemory`).
 - **Ordner** (`Marshal`, Reichweite `MarshalConfig.range`, mit Sichtlinie): beruhigt (bremst den Panikanstieg, baut Panik ab, `Simulation.marshalCalming`) und weist einen Weg (`guidance`, von Panik **nicht** abgeschwächt, gemerkt in `Agent.marshalMemory`). Er ist **kein Hindernis**: Ein Körper mitten im Strom ließ in Tests die Menge vor dem Ausgang verstopfen.
+- **Absperrgitter** (`Barrier`, Vorrat in Metern): eine Strecke, die `planObstacles` als Wand zu den Hindernissen des Levels hinzufügt. Kollision, Sicht und Flow-Fields brauchen keinen eigenen Code. Der Plan wird beim Ändern neu gebaut. `Simulation.unreachableCount()` zählt Agenten, die keinen Ausgang mehr erreichen; dann ist der Start gesperrt. Gitter sind riskant: Ein halb zugestellter Mitteltunnel in der Halle spart etwa 20 %, ein Trichter vor der Tür verstopft alles.
 - Ein leerer Plan verändert nichts: Läufe ohne Maßnahmen bleiben bit-identisch (`npm run fingerprint`).
 - Der Vorrat je Level steht in `Scenario.inventory`; `PlanEditor` setzt ihn durch.
 
@@ -117,5 +118,5 @@ Kosten = Dauer + `injuryPenalty` × (Verletzte + nicht Herausgekommene) + `crowd
 - „Faster is slower“ wird nicht wirklich reproduziert. Die Druckkopplung ist absichtlich mild, weil eine starke Kopplung die Schlange komplett blockiert.
 - Schilder informieren mehr, als dass sie befehlen (`signInfluence` 0,1). Ein großer Bonus ließ die ganze Menge auf den beschilderten Weg kippen. Startpläne sparen 10–27 % in den Panik-Szenarien und 7–10 % in den ruhigen. Gestaffeltes Starten wirkt in den ruhigen Szenarien stärker, ist im Spiel aber noch nicht einstellbar.
 - Wartende Agenten (`releaseTime` noch nicht erreicht) werden nicht gesteuert. Ihre Dichte und Verletzung werden in dieser Zeit nicht berechnet.
-- Spiel: Maßnahmen sind Schilder und Ordner (Absperrgitter folgen). Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist.
-- Als Nächstes geplant: Ordner (wirken lokal, dämpfen Panik, geben Richtung). Später: Rettungskräfte, Bau-Modus mit Budget, Eingriffe live, Skalierung auf 10.000 Agenten (Rendering, Datenlayout).
+- Ordner unterscheiden sich von Schildern bisher nur durch Beruhigung, Panikfestigkeit und kürzere Reichweite; die Beruhigung allein ist noch nicht isoliert gemessen. Die Planung zeigt die Menge in Grün, weil die Dichte vor dem ersten Schritt nicht gemessen ist.
+- Als Nächstes geplant: Wärmekarte des letzten Laufs, Staffelung der Startblöcke in der Planung (`releaseDelays` gibt es schon), Levelauswahl mit Medaillen. Später: Rettungskräfte, Bau-Modus mit Budget, Eingriffe live, Skalierung auf 10.000 Agenten (Rendering, Datenlayout).

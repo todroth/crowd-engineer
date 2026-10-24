@@ -24,13 +24,14 @@ const SPEEDS = [1, 2, 4] as const;
 const DEPTH_DEBUG = 10;
 const DEPTH_RESULT = 30;
 
-/** Anzeigename und Taste je Werkzeug. */
-const TOOLS: readonly {readonly kind: Tool; readonly name: string; readonly key: string}[] = [
-    {kind: "sign", name: "Schild", key: "1"},
-    {kind: "marshal", name: "Ordner", key: "2"},
+/** Anzeigename, Taste und Einheit des Vorrats je Werkzeug (Gitter zählen in Metern). */
+const TOOLS: readonly {readonly kind: Tool; readonly name: string; readonly key: string; readonly unit: string}[] = [
+    {kind: "sign", name: "Schild", key: "1", unit: ""},
+    {kind: "marshal", name: "Ordner", key: "2", unit: ""},
+    {kind: "barrier", name: "Gitter", key: "3", unit: " m"},
 ];
 
-const ITEM_TITLES: Record<Tool, string> = {sign: "Schild", marshal: "Ordner"};
+const ITEM_TITLES: Record<Tool, string> = {sign: "Schild", marshal: "Ordner", barrier: "Absperrgitter"};
 
 /**
  * Planung: Die Menge steht, der Spieler stellt Elemente auf. Lauf: Die
@@ -71,6 +72,8 @@ export class CrowdScene extends Phaser.Scene {
     private panel!: PlanPanel;
     /** Die Seitenleiste muss neu aufgebaut werden (geschieht einmal pro Bild). */
     private panelDirty = true;
+    /** So viele Agenten kann der Plan (durch Gitter) nicht mehr zum Ausgang kommen lassen. */
+    private cutOff = 0;
     private routeMarkers!: Phaser.GameObjects.Container;
     private flowGraphics!: Phaser.GameObjects.Graphics;
     private showFlowDebug = false;
@@ -92,6 +95,7 @@ export class CrowdScene extends Phaser.Scene {
         this.editor = new PlanEditor(
             scenarioInventory(this.scenario),
             this.level.routes.length,
+            this.level.pixelsPerMeter,
             this.selection.plan === undefined ? undefined : this.plans()[this.selection.plan].plan,
         );
         this.people = undefined;
@@ -103,7 +107,7 @@ export class CrowdScene extends Phaser.Scene {
         drawObstacles(this, this.level);
         drawExits(this, this.level);
         this.routeMarkers = createRouteMarkers(this, this.level);
-        this.items = new PlanItemsView(this, this.level.simulation.marshal.range);
+        this.items = new PlanItemsView(this, this.level.simulation.marshal.range, this.level.pixelsPerMeter);
         this.flowGraphics = this.add.graphics().setDepth(DEPTH_DEBUG);
         this.createHud();
         this.bindKeys();
@@ -152,7 +156,7 @@ export class CrowdScene extends Phaser.Scene {
     }
 
     private startRun(): void {
-        if (this.phase !== "planning") {
+        if (this.phase !== "planning" || this.cutOff > 0) {
             return;
         }
 
@@ -192,6 +196,7 @@ export class CrowdScene extends Phaser.Scene {
     /** Neue Simulation mit dem Plan aus dem Editor; Elemente und Menge neu zeichnen. */
     private rebuildSimulation(): void {
         this.simulation = new Simulation(this.level, this.editor.plan);
+        this.cutOff = this.simulation.unreachableCount();
         this.people?.destroy();
         this.people = new PeopleView(this, this.simulation.agents);
         this.redrawItems();
@@ -371,18 +376,19 @@ export class CrowdScene extends Phaser.Scene {
             planning: this.phase === "planning",
             scenarios: SCENARIOS.map((scenario) => scenario.level.name),
             scenarioIndex: this.selection.scenario,
-            tools: TOOLS.filter(({kind}) => this.editor.total(kind) > 0).map(({kind, name, key}) => ({
+            tools: TOOLS.filter(({kind}) => this.editor.total(kind) > 0).map(({kind, name, key, unit}) => ({
                 kind,
                 key,
-                label: `${name}  ${this.editor.used(kind)}/${this.editor.total(kind)}`,
+                label: `${name}  ${Math.round(this.editor.used(kind))}/${this.editor.total(kind)}${unit}`,
                 selected: this.editor.tool === kind,
                 exhausted: this.editor.remaining(kind) === 0,
             })),
             selection: item ? {title: ITEM_TITLES[item.kind], route: item.route} : null,
             routeCount: this.level.routes.length,
             templates: this.plans().map(({name}) => name),
-            warning: null,
-            canStart: true,
+            warning:
+                this.cutOff > 0 ? `Das Gitter schneidet ${this.cutOff} Personen vom Ausgang ab.` : null,
+            canStart: this.cutOff === 0,
             speed: SPEEDS[this.speedIndex],
         };
     }

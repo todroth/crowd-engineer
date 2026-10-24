@@ -104,7 +104,7 @@ const level: Level = {
 /** Wege: 0 = Mitte (Tunnel), 1 = oben, 2 = unten. */
 export const HALLENBRAND: Scenario = {
     level,
-    inventory: {marshals: 2},
+    inventory: {marshals: 2, barrierMeters: 25},
     // Schilder dort, wo sich der Weg teilt (hinter dem Trichter), entlasten den Mitteltunnel.
     plan: createPlan({
         releaseDelays: [],
@@ -114,6 +114,19 @@ export const HALLENBRAND: Scenario = {
         ],
     }),
     examples: [
+        {
+            name: "Gitter macht den Mitteltunnel halb zu",
+            plan: createPlan({barriers: [{start: {x: 548, y: 330}, end: {x: 548, y: 370}}]}),
+        },
+        {
+            name: "Gitter-Trichter vor der Tür (verstopft)",
+            plan: createPlan({
+                barriers: [
+                    {start: {x: 760, y: 330}, end: {x: 830, y: 380}},
+                    {start: {x: 760, y: 520}, end: {x: 830, y: 480}},
+                ],
+            }),
+        },
         {
             name: "Zwei Ordner an der Gabelung (hilft kaum)",
             plan: createPlan({

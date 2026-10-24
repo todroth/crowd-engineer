@@ -169,6 +169,14 @@ export class Wayfinder {
         return this.routes[route].toEntrance.distanceAt(position.x, position.y);
     }
 
+    /** Kann man von `position` aus einen Ausgang erreichen (über das Hauptfeld oder einen Weg)? */
+    canReachGoal(position: Vector2): boolean {
+        return (
+            Number.isFinite(this.mainField.distanceAt(position.x, position.y)) ||
+            this.routes.some(({toEntrance}) => Number.isFinite(toEntrance.distanceAt(position.x, position.y)))
+        );
+    }
+
     /** Meldet bewegliche Hindernisse an alle Felder, damit Wege daran vorbeiführen. */
     setObstructions(centers: readonly Vector2[], radius: number): void {
         const fields = new Set<FlowField>([this.mainField]);

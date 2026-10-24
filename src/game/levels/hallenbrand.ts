@@ -1,6 +1,10 @@
-import type {Level} from "../simulation/Level.ts";
+import type {Level} from "../../simulation/Level.ts";
+import type {Scenario} from "../Scenario.ts";
 
-export const DEFAULT_LEVEL: Level = {
+const level: Level = {
+    name: "Brand in der Halle",
+    description: "Panik: Alle rennen gleichzeitig zum einzigen Tor. Drei Wege, eine Tür, ein Tor.",
+
     worldWidth: 1000,
     worldHeight: 700,
     pixelsPerMeter: 16,
@@ -9,16 +13,13 @@ export const DEFAULT_LEVEL: Level = {
 
     // Start links, Ziel ist das Tor in der Wand am rechten Rand.
     spawnArea: {x: 20, y: 60, width: 200, height: 580},
-    // Blöcke von hinten nach vorn (vorn = nah am Trichter).
-    sectors: [
-        {x: 20, y: 60, width: 70, height: 580},
-        {x: 90, y: 60, width: 70, height: 580},
-        {x: 160, y: 60, width: 60, height: 580},
-    ],
+    // Bei Panik wartet niemand auf eine Freigabe: keine Startblöcke.
+    sectors: [],
     entryArea: {x: -30, y: 60, width: 25, height: 580},
     respawn: false,
     timeLimit: 240,
-    goalArea: {x: 1000, y: 250, width: 40, height: 100},
+    goalAreas: [{x: 1000, y: 250, width: 40, height: 100}],
+    walkingSpeed: {min: 40, max: 60},
     // Eingänge der drei Wege: Mitte, oben, unten.
     routes: [
         {x: 580, y: 330, width: 140, height: 40},
@@ -137,4 +138,9 @@ export const DEFAULT_LEVEL: Level = {
         {type: "wall", start: {x: 1000, y: 0}, end: {x: 1000, y: 250}, thickness: 12},
         {type: "wall", start: {x: 1000, y: 350}, end: {x: 1000, y: 700}, thickness: 12},
     ],
+};
+
+export const HALLENBRAND: Scenario = {
+    level,
+    plan: {releaseDelays: []},
 };

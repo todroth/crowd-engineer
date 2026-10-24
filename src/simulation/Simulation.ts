@@ -105,7 +105,12 @@ export class Simulation {
         );
         const random = createRandom(level.seed);
 
-        this.spawner = new AgentSpawner(level.spawnArea, level.entryArea, random);
+        this.spawner = new AgentSpawner(
+            level.spawnArea,
+            level.entryArea,
+            level.walkingSpeed,
+            random,
+        );
 
         this.nextVelocityX = new Float64Array(level.agentCount);
         this.nextVelocityY = new Float64Array(level.agentCount);
@@ -120,31 +125,28 @@ export class Simulation {
             this.grid.insert(agent.id, agent.position.x, agent.position.y);
         }
 
-        this.flowField = new FlowField(
-            this.colliders,
-            this.fieldBounds(),
-            level.goalArea,
-            {
-                cellSize: config.flowCellSize,
-                agentRadius: Math.max(0, ...this.agents.map((a) => a.radius)),
-                wallAvoidanceDistance: config.wallAvoidanceDistance,
-            },
-        );
         const fieldOptions = {
             cellSize: config.flowCellSize,
             agentRadius: Math.max(0, ...this.agents.map((a) => a.radius)),
             wallAvoidanceDistance: config.wallAvoidanceDistance,
         };
 
+        this.flowField = new FlowField(
+            this.colliders,
+            this.fieldBounds(),
+            level.goalAreas,
+            fieldOptions,
+        );
+
         this.wayfinder = new Wayfinder(
             this.colliders,
             this.flowField,
             level.routes.map(
                 (entrance) =>
-                    new FlowField(this.colliders, this.fieldBounds(), entrance, fieldOptions),
+                    new FlowField(this.colliders, this.fieldBounds(), [entrance], fieldOptions),
             ),
             level.routes,
-            level.goalArea,
+            level.goalAreas,
             config.wayfinding,
             random,
         );
@@ -219,7 +221,7 @@ export class Simulation {
         );
 
         for (const agent of this.agents) {
-            if (!agent.arrived && rectContains(this.level.goalArea, agent.position)) {
+            if (!agent.arrived && this.level.goalAreas.some((goal) => rectContains(goal, agent.position))) {
                 this.arrive(agent);
             }
         }
@@ -413,19 +415,12 @@ export class Simulation {
 
     /** Rasterbereich des Flow-Fields: Welt plus Ein- und Austrittsbereich. */
     private fieldBounds() {
-        const {worldWidth, worldHeight, entryArea, goalArea} = this.level;
-        const left = Math.min(0, entryArea.x, goalArea.x);
-        const top = Math.min(0, entryArea.y, goalArea.y);
-        const right = Math.max(
-            worldWidth,
-            entryArea.x + entryArea.width,
-            goalArea.x + goalArea.width,
-        );
-        const bottom = Math.max(
-            worldHeight,
-            entryArea.y + entryArea.height,
-            goalArea.y + goalArea.height,
-        );
+        const {worldWidth, worldHeight, entryArea, goalAreas} = this.level;
+        const areas = [entryArea, ...goalAreas];
+        const left = Math.min(0, ...areas.map((area) => area.x));
+        const top = Math.min(0, ...areas.map((area) => area.y));
+        const right = Math.max(worldWidth, ...areas.map((area) => area.x + area.width));
+        const bottom = Math.max(worldHeight, ...areas.map((area) => area.y + area.height));
 
         return {x: left, y: top, width: right - left, height: bottom - top};
     }

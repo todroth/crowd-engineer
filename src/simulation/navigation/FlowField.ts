@@ -1,6 +1,6 @@
 import type {Vector2} from "../Vector2.ts";
 import type {Collider} from "../geometry/Collider.ts";
-import type {Rect} from "../geometry/Rect.ts";
+import {type Rect, rectContains} from "../geometry/Rect.ts";
 import {pointClearance} from "../geometry/clearance.ts";
 import {fastMarching} from "./fastMarching.ts";
 
@@ -45,12 +45,13 @@ export class FlowField {
     private readonly hasDirection: Uint8Array;
 
     /**
-     * @param bounds Bereich, den das Raster abdeckt (muss das Ziel enthalten).
+     * @param bounds Bereich, den das Raster abdeckt (muss die Ziele enthalten).
+     * @param goalAreas Zielbereiche; das Feld führt zum jeweils nächsten.
      */
     constructor(
         colliders: readonly Collider[],
         bounds: Rect,
-        goalArea: Rect,
+        goalAreas: readonly Rect[],
         options: FlowFieldOptions,
     ) {
         const {cellSize} = options;
@@ -69,8 +70,7 @@ export class FlowField {
 
             if (
                 this.baseSpeed[cell] > 0 &&
-                center.x >= goalArea.x && center.x <= goalArea.x + goalArea.width &&
-                center.y >= goalArea.y && center.y <= goalArea.y + goalArea.height
+                goalAreas.some((goal) => rectContains(goal, center))
             ) {
                 this.goalCells.push(cell);
             }

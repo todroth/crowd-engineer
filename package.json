@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "bench": "node scripts/benchmark.ts"
+    "bench": "node scripts/benchmark.ts",
+    "scenarios": "node scripts/scenarios.ts"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

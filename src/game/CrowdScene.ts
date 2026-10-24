@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
-import {DEFAULT_LEVEL} from "./defaultLevel.ts";
-import {DEFAULT_PLAN} from "./defaultPlan.ts";
+import type {Level} from "../simulation/Level.ts";
+import {SCENARIOS} from "./scenarios.ts";
 import {calculateCost, referenceCost} from "../simulation/scoring.ts";
 import {getDensityColor} from "./getDensityColor.ts";
 
@@ -15,7 +15,8 @@ const RESCUED_ALPHA = 0.45;
 export class CrowdScene extends Phaser.Scene {
     private simulation!: Simulation;
 
-    private readonly level = DEFAULT_LEVEL;
+    private level!: Level;
+    private scenarioIndex = 0;
 
     private readonly personViews = new Map<number, Phaser.GameObjects.Arc>();
 
@@ -29,9 +30,14 @@ export class CrowdScene extends Phaser.Scene {
         super("CrowdScene");
     }
 
-    create(): void {
+    create(data?: {scenario?: number}): void {
 
-        this.simulation = new Simulation(this.level, DEFAULT_PLAN);
+        this.scenarioIndex = data?.scenario ?? this.scenarioIndex;
+
+        const scenario = SCENARIOS[this.scenarioIndex];
+
+        this.level = scenario.level;
+        this.simulation = new Simulation(scenario.level, scenario.plan);
         this.personViews.clear();
         this.resultText = undefined;
 
@@ -43,6 +49,13 @@ export class CrowdScene extends Phaser.Scene {
         this.statusText = this.add
             .text(12, 10, "", {fontFamily: "monospace", fontSize: "16px", color: "#ffffff"})
             .setDepth(20);
+        this.add
+            .text(12, this.level.worldHeight - 24, this.scenarioMenu(), {
+                fontFamily: "monospace",
+                fontSize: "13px",
+                color: "#9aacc7",
+            })
+            .setDepth(20);
 
         this.input.keyboard
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.R)
@@ -53,7 +66,14 @@ export class CrowdScene extends Phaser.Scene {
 
         this.input.keyboard
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
-            .on("down", () => this.scene.restart());
+            .on("down", () => this.scene.restart({scenario: this.scenarioIndex}));
+
+        // Zifferntasten wechseln das Szenario.
+        SCENARIOS.forEach((_, index) => {
+            this.input.keyboard
+                ?.addKey(Phaser.Input.Keyboard.KeyCodes.ONE + index)
+                .on("down", () => this.scene.restart({scenario: index}));
+        });
 
     }
 
@@ -97,6 +117,16 @@ export class CrowdScene extends Phaser.Scene {
         } else if (view.isStroked) {
             view.setStrokeStyle();
         }
+    }
+
+    /** Zeile unten: Name und Beschreibung des Szenarios, dazu die Tasten zum Wechseln. */
+    private scenarioMenu(): string {
+        const keys = SCENARIOS
+            .map((scenario, index) =>
+                `${index === this.scenarioIndex ? "▶" : " "}${index + 1} ${scenario.level.name}`)
+            .join("   ");
+
+        return `${keys}\n${this.level.description}`;
     }
 
     private updateStatus(): void {

@@ -2,20 +2,26 @@ import type {Agent} from "./Agent.ts";
 import type {Random} from "./random.ts";
 import type {Rect} from "./geometry/Rect.ts";
 
-const SPEED_RANGE = {min: 40, max: 60};
 const AGENT_RADIUS = 4;
 
 /** Erzeugt Agenten und platziert sie zufällig auf freien Plätzen. */
 export class AgentSpawner {
     private readonly spawnArea: Rect;
     private readonly entryArea: Rect;
+    private readonly speedRange: {readonly min: number; readonly max: number};
     private readonly random: Random;
 
     private nextId = 0;
 
-    constructor(spawnArea: Rect, entryArea: Rect, random: Random) {
+    constructor(
+        spawnArea: Rect,
+        entryArea: Rect,
+        speedRange: {readonly min: number; readonly max: number},
+        random: Random,
+    ) {
         this.spawnArea = spawnArea;
         this.entryArea = entryArea;
+        this.speedRange = speedRange;
         this.random = random;
     }
 
@@ -25,8 +31,8 @@ export class AgentSpawner {
             position: {x: 0, y: 0},
             velocity: {x: 0, y: 0},
             desiredSpeed:
-                SPEED_RANGE.min +
-                this.random() * (SPEED_RANGE.max - SPEED_RANGE.min),
+                this.speedRange.min +
+                this.random() * (this.speedRange.max - this.speedRange.min),
             radius: AGENT_RADIUS,
             localDensity: 0,
             sector: -1,

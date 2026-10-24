@@ -4,6 +4,10 @@ import type {ScoringConfig} from "./scoring.ts";
 import type {SimulationConfig} from "./SimulationConfig.ts";
 
 export interface Level {
+    /** Name und kurze Beschreibung für die Anzeige. */
+    readonly name: string;
+    readonly description: string;
+
     readonly worldWidth: number;
     readonly worldHeight: number;
     /**
@@ -30,8 +34,13 @@ export interface Level {
     readonly respawn: boolean;
     /** Zeitlimit eines Durchlaufs (Sekunden); nur ohne Respawn relevant. */
     readonly timeLimit: number;
-    /** Wer diesen Bereich erreicht, gilt als angekommen. */
-    readonly goalArea: Rect;
+    /** Wer einen dieser Bereiche (Ausgänge) erreicht, gilt als angekommen. */
+    readonly goalAreas: readonly Rect[];
+    /**
+     * Lauftempo der Agenten (Pixel/s), je Agent zufällig daraus gezogen. In einem
+     * Notfall wird gerannt (40 bis 60), bei geordneter Räumung gegangen (etwa 22 bis 32).
+     */
+    readonly walkingSpeed: {readonly min: number; readonly max: number};
     /**
      * Alternative Wege zum Ziel, jeweils durch ihren Eingangsbereich
      * gegeben. Wer den Bereich durchquert, hat den Weg gewählt.

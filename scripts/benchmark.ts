@@ -1,15 +1,18 @@
-// Headless-Messung der Simulation: node scripts/benchmark.ts [Sekunden]
+// Headless-Messung der Simulation im Dauerbetrieb: node scripts/benchmark.ts [Sekunden] [Szenario-Nummer]
 import {Simulation} from "../src/simulation/Simulation.ts";
-import {DEFAULT_LEVEL} from "../src/game/defaultLevel.ts";
-import {DEFAULT_PLAN} from "../src/game/defaultPlan.ts";
+import {SCENARIOS} from "../src/game/scenarios.ts";
 import {createColliders} from "../src/simulation/geometry/Collider.ts";
 import {pointClearance} from "../src/simulation/geometry/clearance.ts";
 
 const seconds = Number(process.argv[2] ?? 60);
+const scenario = SCENARIOS[Number(process.argv[3] ?? 1) - 1];
 const step = 1 / 60;
 
-const simulation = new Simulation({...DEFAULT_LEVEL, respawn: true}, DEFAULT_PLAN);
-const colliders = createColliders(DEFAULT_LEVEL.obstacles);
+const simulation = new Simulation(
+    {...scenario.level, respawn: true, entryArea: scenario.level.spawnArea},
+    scenario.plan,
+);
+const colliders = createColliders(scenario.level.obstacles);
 const agents = simulation.agents;
 
 function report(time: number, arrivedSinceLast: number): void {

@@ -34,7 +34,7 @@ export class Wayfinder {
     private readonly entranceCenters: readonly Vector2[];
     /** Länge des Wegs vom Eingang bis ins Ziel. */
     private readonly remainingLength: readonly number[];
-    private readonly goalCenter: Vector2;
+    private readonly goalCenters: readonly Vector2[];
     private readonly config: WayfindingConfig;
     private readonly random: Random;
 
@@ -43,7 +43,7 @@ export class Wayfinder {
         mainField: FlowField,
         routeFields: readonly FlowField[],
         entrances: readonly Rect[],
-        goalArea: Rect,
+        goalAreas: readonly Rect[],
         config: WayfindingConfig,
         random: Random,
     ) {
@@ -61,10 +61,10 @@ export class Wayfinder {
         this.remainingLength = this.entranceCenters.map((center) =>
             mainField.distanceAt(center.x, center.y),
         );
-        this.goalCenter = {
-            x: goalArea.x + goalArea.width / 2,
-            y: goalArea.y + goalArea.height / 2,
-        };
+        this.goalCenters = goalAreas.map((area) => ({
+            x: area.x + area.width / 2,
+            y: area.y + area.height / 2,
+        }));
     }
 
     /**
@@ -118,11 +118,16 @@ export class Wayfinder {
             return;
         }
 
-        // Kein Feldwert (etwa vollständig von Hindernissen umgeben): geradeaus zum Ziel.
-        const distance = distanceBetween(agent.position, this.goalCenter) || 1;
+        // Kein Feldwert (etwa vollständig von Hindernissen umgeben): geradeaus zum nächsten Ziel.
+        const goal = this.goalCenters.reduce((best, center) =>
+            distanceBetween(agent.position, center) < distanceBetween(agent.position, best)
+                ? center
+                : best,
+        );
+        const distance = distanceBetween(agent.position, goal) || 1;
 
-        out.x = (this.goalCenter.x - agent.position.x) / distance;
-        out.y = (this.goalCenter.y - agent.position.y) / distance;
+        out.x = (goal.x - agent.position.x) / distance;
+        out.y = (goal.y - agent.position.y) / distance;
     }
 
     private chooseRoute(

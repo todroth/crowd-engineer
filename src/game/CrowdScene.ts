@@ -17,6 +17,8 @@ export class CrowdScene extends Phaser.Scene {
 
     private level!: Level;
     private scenarioIndex = 0;
+    /** Abspielgeschwindigkeit (1, 2 oder 4), bleibt über Neustarts erhalten. */
+    private speed = 1;
 
     private readonly personViews = new Map<number, Phaser.GameObjects.Arc>();
 
@@ -71,6 +73,13 @@ export class CrowdScene extends Phaser.Scene {
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
             .on("down", () => this.scene.restart({scenario: this.scenarioIndex}));
 
+        // S schaltet die Abspielgeschwindigkeit um: 1x, 2x, 4x.
+        this.input.keyboard
+            ?.addKey(Phaser.Input.Keyboard.KeyCodes.S)
+            .on("down", () => {
+                this.speed = this.speed === 1 ? 2 : this.speed === 2 ? 4 : 1;
+            });
+
         // Zifferntasten wechseln das Szenario.
         SCENARIOS.forEach((_, index) => {
             this.input.keyboard
@@ -82,7 +91,7 @@ export class CrowdScene extends Phaser.Scene {
 
     override update(_time: number, delta: number): void {
 
-        this.simulation.update(delta / 1000);
+        this.simulation.update((delta / 1000) * this.speed);
 
         for (const agent of this.simulation.agents) {
             const view = this.personViews.get(agent.id);
@@ -136,7 +145,8 @@ export class CrowdScene extends Phaser.Scene {
         const {arrived, total, elapsed, injured} = this.simulation.stats;
 
         this.statusText.setText(
-            `Evakuiert ${arrived}/${total}   Verletzt ${injured}   Zeit ${elapsed.toFixed(1)} s   [Leertaste: Neustart]`,
+            `Evakuiert ${arrived}/${total}   Verletzt ${injured}   Zeit ${elapsed.toFixed(1)} s   ` +
+            `[S: Tempo ${this.speed}x   Leertaste: Neustart]`,
         );
 
         if (this.simulation.finished && !this.resultText) {

@@ -1,6 +1,6 @@
 import type {Vector2} from "../Vector2.ts";
 import type {Collider} from "./Collider.ts";
-import {isInsideRect} from "./Rect.ts";
+import {isInsideRect, type Rect} from "./Rect.ts";
 import {distanceToSegment, segmentDistance} from "./segments.ts";
 
 /**
@@ -15,6 +15,12 @@ export function pointClearance(
     let clearance = Infinity;
 
     for (const collider of colliders) {
+        // Die Oberfläche liegt nie näher als das umgebende Rechteck: Ist das schon
+        // weiter weg als der bisher kleinste Abstand, kann das Hindernis nichts ändern.
+        if (distanceToRect(point, collider.bounds) >= clearance) {
+            continue;
+        }
+
         let distance = Infinity;
 
         for (const {a, b} of collider.segments) {
@@ -53,4 +59,12 @@ export function hasLineOfSight(
     }
 
     return true;
+}
+
+/** Abstand eines Punktes zu einem Rechteck (0, wenn er darin liegt). */
+function distanceToRect(point: Vector2, rect: Rect): number {
+    const dx = Math.max(rect.x - point.x, 0, point.x - (rect.x + rect.width));
+    const dy = Math.max(rect.y - point.y, 0, point.y - (rect.y + rect.height));
+
+    return Math.sqrt(dx * dx + dy * dy);
 }

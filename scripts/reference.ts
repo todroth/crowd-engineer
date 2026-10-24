@@ -1,20 +1,22 @@
 // Gibt für jedes Szenario den Referenzwert aus (Lauf ohne Maßnahmen mit dem Seed
 // des Levels), zum Eintragen in `Level.scoring.reference`: node scripts/reference.ts
-import {Simulation} from "../src/simulation/Simulation.ts";
 import {planWithoutMeasures} from "../src/game/Scenario.ts";
 import {SCENARIOS} from "../src/game/scenarios.ts";
+import {runJobs} from "./lib/pool.ts";
 
-for (const {level} of SCENARIOS) {
-    const simulation = new Simulation(level, planWithoutMeasures(level));
+const results = await runJobs(
+    SCENARIOS.map(({level}, scenario) => ({
+        scenario,
+        plan: planWithoutMeasures(level),
+        seed: level.seed,
+    })),
+);
 
-    while (!simulation.finished) {
-        simulation.update(1 / 60);
-    }
-
-    const {elapsed, injured, crowdedSeconds} = simulation.stats;
+SCENARIOS.forEach(({level}, index) => {
+    const {elapsed, injured, crowdedSeconds} = results[index].stats;
 
     console.log(
         `${level.name}: reference: {duration: ${Math.round(elapsed)}, injured: ${injured}, ` +
         `crowdedSeconds: ${Math.round(crowdedSeconds)}}`,
     );
-}
+});

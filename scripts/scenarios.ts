@@ -1,20 +1,31 @@
-// Rechnet Szenarien headless durch: node scripts/scenarios.ts [Szenario-Nummer]
-// Je Szenario der Lauf ohne Maßnahmen, der Startplan, die Beispielpläne und, falls
-// es Startblöcke gibt, gestaffelte Pläne (hinten zuletzt). Zeigt Dauer und Verletzte für drei Seeds.
-import {Simulation} from "../src/simulation/Simulation.ts";
+// Rechnet Szenarien headless und parallel durch:
+//   node scripts/scenarios.ts [Szenario-Nummer] [--seeds=N]
+// Je Szenario der Lauf ohne Maßnahmen, der Startplan, die Beispielpläne und, falls es
+// Startblöcke gibt, gestaffelte Pläne (hinten zuletzt). Zeigt Dauer, Verletzte,
+// Gedränge und Kosten je Seed (Standard: 3 Seeds, `--seeds=1` geht am schnellsten).
 import type {Plan} from "../src/simulation/Plan.ts";
-import {calculateCost} from "../src/simulation/scoring.ts";
 import {planWithoutMeasures} from "../src/game/Scenario.ts";
 import {SCENARIOS} from "../src/game/scenarios.ts";
+import {type Job, runJobs} from "./lib/pool.ts";
 
-const only = process.argv[2] === undefined ? undefined : Number(process.argv[2]) - 1;
+const args = process.argv.slice(2);
+const seedCount = Number(args.find((arg) => arg.startsWith("--seeds="))?.slice(8) ?? 3);
+const onlyArg = args.find((arg) => !arg.startsWith("--"));
+const only = onlyArg === undefined ? undefined : Number(onlyArg) - 1;
+const seeds = Array.from({length: seedCount}, (_, i) => i + 1);
 
-SCENARIOS.forEach(({level, plan, examples}, index) => {
-    if (only !== undefined && only !== index) {
+interface Row {
+    readonly scenario: number;
+    readonly name: string;
+    readonly jobs: readonly Job[];
+}
+
+const rows: Row[] = [];
+
+SCENARIOS.forEach(({level, plan, examples}, scenario) => {
+    if (only !== undefined && only !== scenario) {
         return;
     }
-
-    console.log(`\n${index + 1} ${level.name} (${level.agentCount} Agenten)`);
 
     const plans: [string, Plan][] = [
         ["Ohne Maßnahmen", planWithoutMeasures(level)],
@@ -23,32 +34,45 @@ SCENARIOS.forEach(({level, plan, examples}, index) => {
     ];
     const blocks = level.sectors.length;
 
-    if (blocks > 0) {
-        for (const step of [5, 10, 20, 40]) {
-            plans.push([
-                `gestaffelt, ${step} s je Block`,
-                {...plan, releaseDelays: level.sectors.map((_, i) => (blocks - 1 - i) * step)},
-            ]);
-        }
+    for (const step of blocks > 0 ? [5, 10, 20, 40] : []) {
+        plans.push([
+            `gestaffelt, ${step} s je Block`,
+            {...plan, releaseDelays: level.sectors.map((_, i) => (blocks - 1 - i) * step)},
+        ]);
     }
 
     for (const [name, candidate] of plans) {
-        const rows: string[] = [];
-
-        for (const seed of [1, 2, 3]) {
-            const simulation = new Simulation({...level, seed}, candidate);
-
-            while (!simulation.finished) {
-                simulation.update(1 / 60);
-            }
-
-            const stats = simulation.stats;
-            rows.push(
-                `${stats.elapsed.toFixed(0).padStart(3)} s / ${String(stats.injured).padStart(3)} Verl. ` +
-                `/ Gedr. ${(stats.crowdedSeconds / 60).toFixed(0).padStart(4)} P-Min / Kosten ${calculateCost(stats, level.scoring).total.toFixed(0).padStart(4)}`,
-            );
-        }
-
-        console.log(`  ${name.padEnd(28)} ${rows.join("  |  ")}`);
+        rows.push({
+            scenario,
+            name,
+            jobs: seeds.map((seed) => ({scenario, plan: candidate, seed})),
+        });
     }
 });
+
+const started = performance.now();
+const results = await runJobs(rows.flatMap((row) => row.jobs));
+let cursor = 0;
+let lastScenario = -1;
+
+for (const row of rows) {
+    if (row.scenario !== lastScenario) {
+        const {level} = SCENARIOS[row.scenario];
+
+        console.log(`\n${row.scenario + 1} ${level.name} (${level.agentCount} Agenten)`);
+        lastScenario = row.scenario;
+    }
+
+    const cells = row.jobs.map(() => {
+        const {stats, cost} = results[cursor++];
+
+        return (
+            `${stats.elapsed.toFixed(0).padStart(3)} s / ${String(stats.injured).padStart(3)} Verl. ` +
+            `/ Gedr. ${(stats.crowdedSeconds / 60).toFixed(0).padStart(4)} P-Min / Kosten ${cost.total.toFixed(0).padStart(4)}`
+        );
+    });
+
+    console.log(`  ${row.name.padEnd(44)} ${cells.join("  |  ")}`);
+}
+
+console.log(`\n${results.length} Läufe in ${((performance.now() - started) / 1000).toFixed(0)} s`);

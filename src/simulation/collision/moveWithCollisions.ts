@@ -7,6 +7,11 @@ import {earliestHit, sweepPointVsCapsule, type SweepHit} from "./sweep.ts";
 /** Abstand, den ein Agent nach einem Kontakt zur Oberfläche behält. */
 const CONTACT_EPSILON = 0.01;
 const MAX_ITERATIONS = 6;
+/** Zusätzlicher Spielraum um die Bewegung, in dem Hindernisse noch berücksichtigt werden (Pixel). */
+const NEARBY_MARGIN = 8;
+
+/** Wiederverwendeter Puffer für die nahen Hindernisse (kein Zustand zwischen Aufrufen). */
+const nearbyBuffer: Collider[] = [];
 
 interface Overlap {
     readonly position: Vector2;
@@ -32,8 +37,10 @@ export function moveWithCollisions(
     displacement: Vector2,
     velocity: Vector2,
     radius: number,
-    colliders: readonly Collider[],
+    allColliders: readonly Collider[],
 ): MoveResult {
+    // Nur Hindernisse, die der Bewegung überhaupt nahe kommen können.
+    const colliders = nearbyColliders(allColliders, start, displacement, radius);
     let position = {x: start.x, y: start.y};
     let remaining = displacement;
     let resolvedVelocity = velocity;
@@ -96,6 +103,34 @@ export function moveWithCollisions(
         position,
         velocity: {x: resolvedVelocity.x, y: resolvedVelocity.y},
     };
+}
+
+function nearbyColliders(
+    colliders: readonly Collider[],
+    start: Vector2,
+    displacement: Vector2,
+    radius: number,
+): readonly Collider[] {
+    const reach = radius + NEARBY_MARGIN;
+    const minX = Math.min(start.x, start.x + displacement.x) - reach;
+    const maxX = Math.max(start.x, start.x + displacement.x) + reach;
+    const minY = Math.min(start.y, start.y + displacement.y) - reach;
+    const maxY = Math.max(start.y, start.y + displacement.y) + reach;
+
+    nearbyBuffer.length = 0;
+
+    for (const collider of colliders) {
+        const {bounds} = collider;
+
+        if (
+            bounds.x <= maxX && bounds.x + bounds.width >= minX &&
+            bounds.y <= maxY && bounds.y + bounds.height >= minY
+        ) {
+            nearbyBuffer.push(collider);
+        }
+    }
+
+    return nearbyBuffer;
 }
 
 function removeInwardComponent(vector: Vector2, normal: Vector2): Vector2 {

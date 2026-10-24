@@ -46,7 +46,7 @@ const level: Level = {
         injuryPenalty: 1,
         crowdingThreshold: 2.5,
         crowdingPenalty: 0.01,
-        reference: {duration: 140, injured: 10, crowdedSeconds: 42655},
+        reference: {duration: 144, injured: 10, crowdedSeconds: 42815},
     },
 
     simulation: CALM_BEHAVIOR,

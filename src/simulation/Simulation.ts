@@ -73,7 +73,8 @@ export class Simulation {
     private readonly personsPerSquareMeter: number;
 
     private accumulator = 0;
-    private obstructedInjuredCount = 0;
+    /** Liegende Verletzte, wie sie zuletzt in die Flow-Fields eingetragen wurden. */
+    private obstructionCount = 0;
     private lastObstructionUpdate = 0;
     private peakDensity = 0;
     private crowdedSeconds = 0;
@@ -263,6 +264,10 @@ export class Simulation {
             config.wallDensityFactor,
         );
 
+        const personsPerSquareMeter = sample.density * this.personsPerSquareMeter;
+
+        this.recordDensity(personsPerSquareMeter, deltaSeconds);
+
         if (
             updateInjury(
                 agent,
@@ -271,14 +276,12 @@ export class Simulation {
                 deltaSeconds,
             )
         ) {
-            // Der Agent stürzt und bleibt als Hindernis liegen.
+            // Der Agent stürzt und bleibt als Hindernis liegen; er steuert nicht mehr.
             this.injuredCount++;
             agent.velocity = {x: 0, y: 0};
+            return;
         }
 
-        const personsPerSquareMeter = sample.density * this.personsPerSquareMeter;
-
-        this.recordDensity(personsPerSquareMeter, deltaSeconds);
         updatePanic(agent, sample.neighborPanic, config.panic, deltaSeconds);
 
         this.wayfinder.update(agent, deltaSeconds, (entrance) =>
@@ -373,9 +376,16 @@ export class Simulation {
      * gestürzt ist (und gelegentlich, weil sie langsam weggeschoben werden).
      */
     private updateObstructions(): void {
-        const changed = this.injuredCount !== this.obstructedInjuredCount;
+        const isLying = (agent: Agent): boolean => agent.injured && !agent.arrived;
+        let lyingCount = 0;
+
+        for (const agent of this.agents) {
+            lyingCount += isLying(agent) ? 1 : 0;
+        }
+
+        const changed = lyingCount !== this.obstructionCount;
         const stale =
-            this.injuredCount > 0 &&
+            lyingCount > 0 &&
             this.elapsed - this.lastObstructionUpdate >= OBSTRUCTION_REFRESH_INTERVAL;
 
         if (!changed && !stale) {
@@ -383,12 +393,10 @@ export class Simulation {
         }
 
         this.wayfinder.setObstructions(
-            this.agents
-                .filter((agent) => agent.injured && !agent.arrived)
-                .map((agent) => agent.position),
+            this.agents.filter(isLying).map((agent) => agent.position),
             INJURED_AVOIDANCE_RADIUS,
         );
-        this.obstructedInjuredCount = this.injuredCount;
+        this.obstructionCount = lyingCount;
         this.lastObstructionUpdate = this.elapsed;
     }
 

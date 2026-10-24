@@ -36,7 +36,7 @@ const level: Level = {
         injuryPenalty: 1,
         crowdingThreshold: 4,
         crowdingPenalty: 0.01,
-        reference: {duration: 68, injured: 141, crowdedSeconds: 10058},
+        reference: {duration: 73, injured: 140, crowdedSeconds: 10874},
     },
 
     simulation: PANIC_BEHAVIOR,

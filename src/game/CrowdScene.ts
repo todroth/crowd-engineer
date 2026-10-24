@@ -49,12 +49,15 @@ export class CrowdScene extends Phaser.Scene {
         this.statusText = this.add
             .text(12, 10, "", {fontFamily: "monospace", fontSize: "16px", color: "#ffffff"})
             .setDepth(20);
+        // Am unteren Rand verankert und umbrochen, damit lange Texte im Bild bleiben.
         this.add
-            .text(12, this.level.worldHeight - 24, this.scenarioMenu(), {
+            .text(12, this.level.worldHeight - 8, this.scenarioMenu(), {
                 fontFamily: "monospace",
                 fontSize: "13px",
                 color: "#9aacc7",
+                wordWrap: {width: this.level.worldWidth - 24},
             })
+            .setOrigin(0, 1)
             .setDepth(20);
 
         this.input.keyboard

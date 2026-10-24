@@ -35,6 +35,10 @@ export function resolveAgentContacts(
         moved.clear();
 
         for (const agent of agents) {
+            if (agent.arrived) {
+                continue;
+            }
+
             grid.query(agent.position.x, agent.position.y, queryRadius, neighbors);
 
             for (const index of neighbors) {

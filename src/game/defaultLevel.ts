@@ -9,6 +9,8 @@ export const DEFAULT_LEVEL: Level = {
     // Start links, Ziel ist das Tor in der Wand am rechten Rand.
     spawnArea: {x: 20, y: 60, width: 200, height: 580},
     entryArea: {x: -30, y: 60, width: 25, height: 580},
+    respawn: false,
+    timeLimit: 240,
     goalArea: {x: 1000, y: 250, width: 40, height: 100},
     // Eingänge der drei Wege: Mitte, oben, unten.
     routes: [

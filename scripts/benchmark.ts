@@ -7,7 +7,7 @@ import {pointClearance} from "../src/simulation/geometry/clearance.ts";
 const seconds = Number(process.argv[2] ?? 60);
 const step = 1 / 60;
 
-const simulation = new Simulation(DEFAULT_LEVEL);
+const simulation = new Simulation({...DEFAULT_LEVEL, respawn: true});
 const colliders = createColliders(DEFAULT_LEVEL.obstacles);
 const agents = simulation.agents;
 

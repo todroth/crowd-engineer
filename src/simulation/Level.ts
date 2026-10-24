@@ -11,6 +11,14 @@ export interface Level {
     readonly spawnArea: Rect;
     /** Hier treten Agenten wieder ein, nachdem sie angekommen sind (außerhalb der Welt). */
     readonly entryArea: Rect;
+    /**
+     * Treten angekommene Agenten wieder ein (Dauerbetrieb)? Sonst läuft die
+     * Menge einmal durch, und der Durchlauf endet, wenn alle angekommen sind
+     * oder das Zeitlimit erreicht ist.
+     */
+    readonly respawn: boolean;
+    /** Zeitlimit eines Durchlaufs (Sekunden); nur ohne Respawn relevant. */
+    readonly timeLimit: number;
     /** Wer diesen Bereich erreicht, gilt als angekommen. */
     readonly goalArea: Rect;
     /**

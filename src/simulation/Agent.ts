@@ -13,6 +13,9 @@ export interface Agent {
     /** Gewichtete Zahl der Nachbarn im Dichteradius. */
     localDensity: number;
 
+    /** Hat das Ziel erreicht und nimmt nicht mehr an der Simulation teil. */
+    arrived: boolean;
+
     /** 0 = ruhig, 1 = panisch. */
     panic: number;
 

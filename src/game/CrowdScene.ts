@@ -13,6 +13,9 @@ export class CrowdScene extends Phaser.Scene {
     private flowGraphics!: Phaser.GameObjects.Graphics;
     private showFlowDebug = false;
 
+    private statusText!: Phaser.GameObjects.Text;
+    private resultText?: Phaser.GameObjects.Text;
+
     constructor() {
         super("CrowdScene");
     }
@@ -20,12 +23,17 @@ export class CrowdScene extends Phaser.Scene {
     create(): void {
 
         this.simulation = new Simulation(this.level);
+        this.personViews.clear();
+        this.resultText = undefined;
 
         this.drawGrid();
         this.drawObstacles();
         this.createPeople();
 
         this.flowGraphics = this.add.graphics().setDepth(10);
+        this.statusText = this.add
+            .text(12, 10, "", {fontFamily: "monospace", fontSize: "16px", color: "#ffffff"})
+            .setDepth(20);
 
         this.input.keyboard
             ?.addKey(Phaser.Input.Keyboard.KeyCodes.R)
@@ -33,6 +41,10 @@ export class CrowdScene extends Phaser.Scene {
                 this.showFlowDebug = !this.showFlowDebug;
                 this.drawFlowFieldDebug();
             });
+
+        this.input.keyboard
+            ?.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+            .on("down", () => this.scene.restart());
 
     }
 
@@ -44,6 +56,7 @@ export class CrowdScene extends Phaser.Scene {
             const view = this.personViews.get(agent.id);
 
             if (view) {
+                view.setVisible(!agent.arrived);
                 view.setPosition(
                     agent.position.x,
                     agent.position.y,
@@ -51,6 +64,50 @@ export class CrowdScene extends Phaser.Scene {
                 view.setFillStyle(getDensityColor(agent.localDensity));
             }
         }
+
+        this.updateStatus();
+    }
+
+    private updateStatus(): void {
+        const {arrived, total, elapsed} = this.simulation.stats;
+
+        this.statusText.setText(
+            `Evakuiert ${arrived}/${total}   Zeit ${elapsed.toFixed(1)} s   [Leertaste: Neustart]`,
+        );
+
+        if (this.simulation.finished && !this.resultText) {
+            this.showResult();
+        }
+    }
+
+    private showResult(): void {
+        const stats = this.simulation.stats;
+        const seconds = (time: number | null): string =>
+            time === null ? "nicht erreicht" : `${time.toFixed(1)} s`;
+
+        const lines = [
+            stats.arrived === stats.total ? "Alle evakuiert" : "Zeit abgelaufen",
+            "",
+            `Evakuiert:        ${stats.arrived}/${stats.total}`,
+            `50 % draußen:     ${seconds(stats.timeTo50Percent)}`,
+            `90 % draußen:     ${seconds(stats.timeTo90Percent)}`,
+            `Alle draußen:     ${seconds(stats.timeToAll)}`,
+            `Höchste Dichte:   ${stats.peakDensity.toFixed(1)}`,
+            "",
+            "Leertaste: Neustart",
+        ];
+
+        this.resultText = this.add
+            .text(this.level.worldWidth / 2, this.level.worldHeight / 2, lines.join("\n"), {
+                fontFamily: "monospace",
+                fontSize: "22px",
+                color: "#ffffff",
+                backgroundColor: "#101820e6",
+                padding: {x: 24, y: 18},
+                align: "left",
+            })
+            .setOrigin(0.5)
+            .setDepth(30);
     }
 
     private drawGrid(): void {

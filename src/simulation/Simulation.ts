@@ -27,10 +27,26 @@ const MAX_SPEED_FACTOR = 1.5;
 const NORMAL_SPEED = 50;
 const CONTACT_ITERATIONS = 3;
 
+/** Kennzahlen eines Durchlaufs. Zeiten in Sekunden, `null` = noch nicht erreicht. */
+export interface RunStats {
+    readonly elapsed: number;
+    readonly arrived: number;
+    readonly total: number;
+    readonly timeTo50Percent: number | null;
+    readonly timeTo90Percent: number | null;
+    readonly timeToAll: number | null;
+    /** Höchste lokale Dichte, die ein Agent erlebt hat. */
+    readonly peakDensity: number;
+}
+
 export class Simulation {
     readonly agents: Agent[];
     /** Anzahl der Agenten, die ihr Ziel erreicht haben. */
     arrivedCount = 0;
+    /** Vergangene Simulationszeit (Sekunden). */
+    elapsed = 0;
+    /** Durchlauf beendet (alle angekommen oder Zeitlimit); nur ohne Respawn. */
+    finished = false;
 
     private readonly level: Level;
     private readonly colliders: readonly Collider[];
@@ -42,6 +58,9 @@ export class Simulation {
     private readonly wayfinder: Wayfinder;
 
     private accumulator = 0;
+    private peakDensity = 0;
+    private readonly milestones: { 50: number | null; 90: number | null; all: number | null } =
+        {50: null, 90: null, all: null};
 
     // Wiederverwendete Puffer, damit pro Schritt nichts allokiert wird.
     private readonly neighborBuffer: number[] = [];
@@ -112,7 +131,23 @@ export class Simulation {
         );
     }
 
+    get stats(): RunStats {
+        return {
+            elapsed: this.elapsed,
+            arrived: this.arrivedCount,
+            total: this.agents.length,
+            timeTo50Percent: this.milestones[50],
+            timeTo90Percent: this.milestones[90],
+            timeToAll: this.milestones.all,
+            peakDensity: this.peakDensity,
+        };
+    }
+
     update(deltaSeconds: number): void {
+        if (this.finished) {
+            return;
+        }
+
         this.accumulator += deltaSeconds;
 
         for (
@@ -129,16 +164,23 @@ export class Simulation {
     }
 
     private step(deltaSeconds: number): void {
+        this.elapsed += deltaSeconds;
         this.rebuildGrid();
 
         // Erst alle neuen Geschwindigkeiten aus dem Zustand zu Schrittbeginn
         // berechnen, dann anwenden: Das Ergebnis hängt nicht von der
         // Reihenfolge der Agenten ab.
         for (const agent of this.agents) {
-            this.steer(agent, deltaSeconds);
+            if (!agent.arrived) {
+                this.steer(agent, deltaSeconds);
+            }
         }
 
         for (const agent of this.agents) {
+            if (agent.arrived) {
+                continue;
+            }
+
             agent.velocity = {
                 x: this.nextVelocityX[agent.id],
                 y: this.nextVelocityY[agent.id],
@@ -155,9 +197,17 @@ export class Simulation {
         );
 
         for (const agent of this.agents) {
-            if (rectContains(this.level.goalArea, agent.position)) {
+            if (!agent.arrived && rectContains(this.level.goalArea, agent.position)) {
                 this.arrive(agent);
             }
+        }
+
+        if (
+            !this.level.respawn &&
+            (this.arrivedCount === this.agents.length ||
+                this.elapsed >= this.level.timeLimit)
+        ) {
+            this.finished = true;
         }
     }
 
@@ -179,6 +229,7 @@ export class Simulation {
             this.sample,
         );
         agent.localDensity = this.measureDensity(agent);
+        this.peakDensity = Math.max(this.peakDensity, agent.localDensity);
 
         updatePanic(agent, this.sample.neighborPanic, config.panic, deltaSeconds);
 
@@ -305,14 +356,34 @@ export class Simulation {
 
     private arrive(agent: Agent): void {
         this.arrivedCount++;
-        this.spawner.respawn(agent, this.isSpawnFree);
+        this.recordMilestones();
+
+        if (this.level.respawn) {
+            this.spawner.respawn(agent, this.isSpawnFree);
+            return;
+        }
+
+        // Der Agent verlässt die Simulation.
+        agent.arrived = true;
+        agent.velocity = {x: 0, y: 0};
+        agent.localDensity = 0;
+    }
+
+    private recordMilestones(): void {
+        const share = this.arrivedCount / this.agents.length;
+
+        if (share >= 0.5 && this.milestones[50] === null) this.milestones[50] = this.elapsed;
+        if (share >= 0.9 && this.milestones[90] === null) this.milestones[90] = this.elapsed;
+        if (share >= 1 && this.milestones.all === null) this.milestones.all = this.elapsed;
     }
 
     private rebuildGrid(): void {
         this.grid.clear();
 
         for (const agent of this.agents) {
-            this.grid.insert(agent.id, agent.position.x, agent.position.y);
+            if (!agent.arrived) {
+                this.grid.insert(agent.id, agent.position.x, agent.position.y);
+            }
         }
     }
 

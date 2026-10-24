@@ -29,6 +29,8 @@ export class AgentSpawner {
                 this.random() * (SPEED_RANGE.max - SPEED_RANGE.min),
             radius: AGENT_RADIUS,
             localDensity: 0,
+            sector: -1,
+            releaseTime: 0,
             arrived: false,
             injury: 0,
             injured: false,
@@ -63,6 +65,8 @@ export class AgentSpawner {
         agent.velocity = {x: 0, y: 0};
         agent.localDensity = 0;
         agent.arrived = false;
+        agent.sector = -1;
+        agent.releaseTime = 0;
         agent.injury = 0;
         agent.injured = false;
         agent.injuredFor = 0;

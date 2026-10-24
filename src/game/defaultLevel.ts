@@ -9,6 +9,12 @@ export const DEFAULT_LEVEL: Level = {
 
     // Start links, Ziel ist das Tor in der Wand am rechten Rand.
     spawnArea: {x: 20, y: 60, width: 200, height: 580},
+    // Blöcke von hinten nach vorn (vorn = nah am Trichter).
+    sectors: [
+        {x: 20, y: 60, width: 70, height: 580},
+        {x: 90, y: 60, width: 70, height: 580},
+        {x: 160, y: 60, width: 60, height: 580},
+    ],
     entryArea: {x: -30, y: 60, width: 25, height: 580},
     respawn: false,
     timeLimit: 240,

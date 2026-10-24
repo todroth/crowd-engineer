@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {Simulation} from "../simulation/Simulation.ts";
 import {DEFAULT_LEVEL} from "./defaultLevel.ts";
+import {DEFAULT_PLAN} from "./defaultPlan.ts";
 import {getDensityColor} from "./getDensityColor.ts";
 
 /** Farbe für Verletzte (Füllung) und den Gefährdungsring; Verletzte haben zusätzlich einen weißen Ring. */
@@ -29,7 +30,7 @@ export class CrowdScene extends Phaser.Scene {
 
     create(): void {
 
-        this.simulation = new Simulation(this.level);
+        this.simulation = new Simulation(this.level, DEFAULT_PLAN);
         this.personViews.clear();
         this.resultText = undefined;
 

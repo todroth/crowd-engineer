@@ -1,6 +1,7 @@
 import type {Agent} from "./Agent.ts";
 import {AgentSpawner} from "./AgentSpawner.ts";
 import type {Level} from "./Level.ts";
+import type {Plan} from "./Plan.ts";
 import {SpatialGrid} from "../spatial/SpatialGrid.ts";
 import {createRandom} from "./random.ts";
 import {type Collider, createColliders} from "./geometry/Collider.ts";
@@ -56,6 +57,7 @@ export class Simulation {
     finished = false;
 
     private readonly level: Level;
+    private readonly plan: Plan;
     private readonly colliders: readonly Collider[];
     private readonly grid: SpatialGrid;
     private readonly neighborRadius: number;
@@ -82,10 +84,11 @@ export class Simulation {
     private readonly nextVelocityX: Float64Array;
     private readonly nextVelocityY: Float64Array;
 
-    constructor(level: Level) {
+    constructor(level: Level, plan: Plan) {
         const {simulation: config} = level;
 
         this.level = level;
+        this.plan = plan;
         this.personsPerSquareMeter =
             (3 * level.pixelsPerMeter ** 2) /
             (Math.PI * config.densityRadius ** 2);
@@ -112,6 +115,7 @@ export class Simulation {
         for (let i = 0; i < level.agentCount; i++) {
             const agent = this.spawner.createAgent(this.isSpawnFree);
 
+            this.assignRelease(agent);
             this.agents.push(agent);
             this.grid.insert(agent.id, agent.position.x, agent.position.y);
         }
@@ -184,14 +188,14 @@ export class Simulation {
         // berechnen, dann anwenden: Das Ergebnis hängt nicht von der
         // Reihenfolge der Agenten ab.
         for (const agent of this.agents) {
-            if (!agent.arrived && !agent.injured) {
+            if (this.isMoving(agent)) {
                 this.steer(agent, deltaSeconds);
             }
         }
 
         for (const agent of this.agents) {
-            // Angekommene sind weg, Verletzte bleiben liegen.
-            if (agent.arrived || agent.injured) {
+            // Angekommene sind weg, Verletzte bleiben liegen, Wartende stehen.
+            if (!this.isMoving(agent)) {
                 continue;
             }
 
@@ -227,6 +231,19 @@ export class Simulation {
         ) {
             this.finished = true;
         }
+    }
+
+    /** Bestimmt, wann der Agent laut Plan loslaufen darf (nach seinem Block). */
+    private assignRelease(agent: Agent): void {
+        agent.sector = this.level.sectors.findIndex((sector) =>
+            rectContains(sector, agent.position),
+        );
+        agent.releaseTime = this.plan.releaseDelays[agent.sector] ?? 0;
+    }
+
+    /** Läuft der Agent gerade selbst (nicht angekommen, nicht verletzt, freigegeben)? */
+    private isMoving(agent: Agent): boolean {
+        return !agent.arrived && !agent.injured && this.elapsed >= agent.releaseTime;
     }
 
     /** Verletzte, die lange genug lagen, werden abtransportiert. */

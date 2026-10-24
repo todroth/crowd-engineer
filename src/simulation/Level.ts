@@ -14,6 +14,11 @@ export interface Level {
     readonly agentCount: number;
     /** Hier werden die Agenten zu Beginn platziert. */
     readonly spawnArea: Rect;
+    /**
+     * Teilt den Startbereich in Blöcke, die der Plan zeitversetzt freigeben
+     * kann. Agenten gehören zu dem Block, in dem sie starten.
+     */
+    readonly sectors: readonly Rect[];
     /** Hier treten Agenten wieder ein, nachdem sie angekommen sind (außerhalb der Welt). */
     readonly entryArea: Rect;
     /**

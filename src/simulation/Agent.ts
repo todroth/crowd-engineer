@@ -25,6 +25,11 @@ export interface Agent {
     /** Wurde abtransportiert: liegt noch sichtbar da, beeinflusst die Simulation aber nicht mehr. */
     rescued: boolean;
 
+    /** Block des Startbereichs, in dem der Agent gestartet ist (-1 = keiner). */
+    sector: number;
+    /** Simulationszeit (Sekunden), ab der der Agent loslaufen darf. */
+    releaseTime: number;
+
     /** 0 = ruhig, 1 = panisch. */
     panic: number;
 
